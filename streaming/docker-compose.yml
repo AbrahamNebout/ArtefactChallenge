@@ -1,0 +1,289 @@
+version: "3.8"
+
+# Level 3 — Pipeline Hybride Batch & Streaming
+# À lancer en complément du docker-compose existant (Level 1/2) :
+#   docker compose -f docker-compose.yml -f docker-compose.level3.yml up -d
+#
+# Réseau partagé "waba-network" : doit déjà exister (créé par le compose
+# principal) pour que NiFi/Kafka puissent parler à MinIO et aux jobs Spark.
+
+networks:
+  waba-network:
+    external: true
+
+volumes:
+  nifi_conf:
+  nifi_state:
+  nifi_content:
+  nifi_provenance:
+  kafka_data:
+  spark_ivy_cache:
+    external: true
+    name: artefact_project_spark-ivy-cache 
+  stream_checkpoints_bank:
+  stream_checkpoints_insurance:
+  stream_checkpoints_mobile_money:
+  stream_checkpoints_fraud_multiple_txn:
+  stream_checkpoints_fraud_unusual_country:
+  stream_checkpoints_fraud_claim_ratio:
+  stream_checkpoints_aml_threshold:
+  stream_checkpoints_liquidity_alerts:
+services:
+
+  # --- Kafka en mode KRaft (sans Zookeeper, plus simple pour une démo) ---
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: waba-kafka
+    hostname: kafka
+    networks:
+      - waba-network
+    ports:
+      - "9092:9092"        # accès externe (host) si besoin de debug
+      - "9093:9093"        # port interne KRaft controller
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # ⚠️ CLUSTER_ID doit être un UUID Kafka valide (22 caractères, généré
+      # par l'outil), PAS une chaîne arbitraire. Génère le tien avec :
+      #   docker run --rm apache/kafka:3.7.0 /opt/kafka/bin/kafka-storage.sh random-uuid
+      # puis remplace la valeur ci-dessous.
+      CLUSTER_ID: "REMPLACE_MOI_PAR_UN_VRAI_UUID_GENERE"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9092' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # --- Création automatique des topics au démarrage ---
+  kafka-init-topics:
+    image: apache/kafka:3.7.0
+    container_name: waba-kafka-init-topics
+    networks:
+      - waba-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/init/topics.sh"]
+    volumes:
+      - ./kafka_topic/topics.sh:/init/topics.sh:ro
+    restart: "no"
+
+  # --- UI web pour explorer Kafka visuellement (optionnel mais pratique) ---
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: waba-kafka-ui
+    hostname: kafka-ui
+    networks:
+      - waba-network
+    ports:
+      - "8095:8080"   # 8080 déjà utilisé par waba-trino sur ta stack existante
+    environment:
+      KAFKA_CLUSTERS_0_NAME: waba-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # --- Apache NiFi ---
+  nifi:
+    image: apache/nifi:1.27.0
+    container_name: waba-nifi
+    hostname: nifi
+    networks:
+      - waba-network
+    ports:
+      - "8443:8443"   # UI NiFi (HTTPS par défaut sur cette image)
+    environment:
+      NIFI_WEB_HTTPS_PORT: 8443
+      SINGLE_USER_CREDENTIALS_USERNAME: ${NIFI_ADMIN_USERNAME}
+      SINGLE_USER_CREDENTIALS_PASSWORD: ${NIFI_ADMIN_PASSWORD}  # 12+ caractères requis par NiFi
+    volumes:
+      - nifi_conf:/opt/nifi/nifi-current/conf
+      - nifi_state:/opt/nifi/nifi-current/state
+      - nifi_content:/opt/nifi/nifi-current/content_repository
+      - nifi_provenance:/opt/nifi/nifi-current/provenance_repository
+    depends_on:
+      - kafka
+
+ # --- Job 1 Spark Structured Streaming : Raw -> Silver (un conteneur par
+  #     type de donnée, chacun tourne en continu tant que le stack est up) ---
+  stream-bank-transactions:
+    image: stream_image:latest
+    container_name: waba-stream-bank-transactions
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_raw_to_silver.py", "--data_type", "bank_transactions"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 
+  stream-insurance-operations:
+    image: stream_image:latest
+    container_name: waba-stream-insurance-operations
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_raw_to_silver.py", "--data_type", "insurance_operations"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 
+  stream-mobile-money:
+    image: stream_image:latest
+    container_name: waba-stream-mobile-money
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_raw_to_silver.py", "--data_type", "mobile_money"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+
+# --- Job 2 Spark Structured Streaming : Silver -> Gold (détection de
+  #     fraude, AML, liquidité) -- un conteneur par règle, même image que Job 1 ---
+  stream-fraud-multiple-txn:
+    image: stream_image:latest
+    container_name: waba-stream-fraud-multiple-txn
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_silver_to_gold.py", "--job", "fraud_multiple_txn"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+      - stream_checkpoints_fraud_multiple_txn:/tmp/checkpoints
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 
+  stream-fraud-unusual-country:
+    image: stream_image:latest
+    container_name: waba-stream-fraud-unusual-country
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_silver_to_gold.py", "--job", "fraud_unusual_country"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+      - stream_checkpoints_fraud_unusual_country:/tmp/checkpoints
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 
+  stream-fraud-claim-ratio:
+    image: stream_image:latest
+    container_name: waba-stream-fraud-claim-ratio
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_silver_to_gold.py", "--job", "fraud_claim_ratio"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+      - stream_checkpoints_fraud_claim_ratio:/tmp/checkpoints
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 
+  stream-aml-threshold:
+    image: stream_image:latest
+    container_name: waba-stream-aml-threshold
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_silver_to_gold.py", "--job", "aml_threshold"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+      - stream_checkpoints_aml_threshold:/tmp/checkpoints
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 
+  stream-liquidity-alerts:
+    image: stream_image:latest
+    container_name: waba-stream-liquidity-alerts
+    networks:
+      - waba-network
+    command: ["spark-submit", "/app/stream_silver_to_gold.py", "--job", "liquidity_alerts"]
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI}
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+      - stream_checkpoints_liquidity_alerts:/tmp/checkpoints
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+ 

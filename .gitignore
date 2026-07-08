@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.log
+data/
+.DS_Store
+.idea/
+.vscode/
+minio-data/
+etape.txt
+airflow\dags\__pycache__
+airflow/dags/__pycache__
