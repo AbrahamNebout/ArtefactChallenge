@@ -38,8 +38,8 @@ SILVER_READY = Asset("silver://all")
 with DAG(
     dag_id="dag_bronze_to_silver",
     description="Transformation Bronze -> Silver (nettoyage, dédup, jointure, conversion EUR)",
-    start_date=datetime(2026, 4, 10),
-    end_date=datetime(2026, 4, 13),   # même période simulée que les DAGs d'ingestion
+    start_date=datetime(2026, 5, 10),
+    end_date=datetime(2026, 5, 12),    # même période simulée que les DAGs d'ingestion
     schedule="0 1 * * *",            # même cadence que les 4 DAGs d'ingestion -> logical_date identiques
     catchup=True,
     max_active_tasks=8,

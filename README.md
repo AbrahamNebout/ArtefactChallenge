@@ -93,10 +93,10 @@ docker exec waba-spark-runner spark-submit /app/ingest_raw.py --data_type bank_t
 Pour lancer sur tous les pays d'un coup :
 ```bash
 for country in CI SN ML BF GN TG BJ GH; do
-  docker exec waba-spark-runner spark-submit /app/ingest_raw.py --data_type loan_repayments --country $country
+  docker exec waba-spark-runner spark-submit /app/ingest_raw.py --data_type bank_transactions --country $country
 done
 ```
-Répète (en changeant `--data_type`) pour `bank_transactions`, `insurance_operations`, et `mobile_money`.
+Répète (en changeant `--data_type`) pour  `insurance_operations`,  `mobile_money` et `loan_repayments`,.
 
 Vérification finale :
 ```bash
@@ -126,6 +126,8 @@ cd ..
 Cette image est réutilisée par toutes les tâches Spark déclenchées par Airflow — étape indispensable avant de démarrer le compose.
 
 ### 2.3 Démarrer Airflow
+
+Dans le dossier airflow, cree un ficher .env et inserer ***AIRFLOW_UID=50000***
 
 ```bash
 docker compose up -d

@@ -48,8 +48,8 @@ KPIS = [
 with DAG(
     dag_id="dag_silver_to_gold",
     description="Calcul des KPIs Gold (financiers et réglementaires) depuis Silver",
-    start_date=datetime(2026, 4, 10),
-    end_date=datetime(2026, 4, 12),   # même période simulée que les DAGs en amont
+    start_date=datetime(2026, 5, 10),
+    end_date=datetime(2026, 5, 12),    # même période simulée que les DAGs en amont
     schedule="0 1 * * *",            # même cadence que dag_bronze_to_silver -> logical_date identiques
     catchup=True,
     max_active_tasks=7,

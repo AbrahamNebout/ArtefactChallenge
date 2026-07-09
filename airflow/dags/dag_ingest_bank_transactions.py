@@ -38,8 +38,8 @@ def check_country(country: str, **context) -> bool:
 with DAG(
     dag_id=f"dag_ingest_{DATA_TYPE}",
     description=f"Ingestion quotidienne de {DATA_TYPE} vers Bronze (traite J-1)",
-    start_date=datetime(2026, 4, 10),
-    end_date=datetime(2026, 4, 13), 
+    start_date=datetime(2026, 5, 10),
+    end_date=datetime(2026, 5, 12),  
     schedule="0 1 * * *",
     catchup=True,
     max_active_runs=2,
