@@ -205,21 +205,15 @@ Cette image est réutilisée par tous les conteneurs `stream-*` du compose — i
 
 A la racine du dossier streaming, crée un ficher .env avec le contenu suivant 
 
-
-***KAFKA_CLUSTER_ID=0yJKRjynSOCyxUyk9sNtZw***
-
-***NIFI_ADMIN_USERNAME=admin***
-***NIFI_ADMIN_PASSWORD=wabaGroup2026!***
-
-***MINIO_ENDPOINT=http://minio:9000***
-***MINIO_ACCESS_KEY=minioadmin***
-***MINIO_SECRET_KEY=minioadmin123***
-***ICEBERG_CATALOG_URI=http://iceberg-rest:8181***
-
-
-
-
-
+```bash
+KAFKA_CLUSTER_ID=0yJKRjynSOCyxUyk9sNtZw
+NIFI_ADMIN_USERNAME=admin
+NIFI_ADMIN_PASSWORD=wabaGroup2026!
+MINIO_ENDPOINT=http://minio:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+ICEBERG_CATALOG_URI=http://iceberg-rest:8181
+```
 
 
 ```bash
