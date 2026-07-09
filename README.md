@@ -11,6 +11,7 @@ Le projet est structuré en 3 niveaux progressifs, **indépendants les uns des a
 | **Level 1** | Génération de données + ingestion batch vers un lakehouse Iceberg | Streamlit, MinIO, Spark, Iceberg, Trino |
 | **Level 2** | Orchestration du pipeline batch avec architecture médaillon complète | Apache Airflow |
 | **Level 3** | Extension temps réel (ingestion streaming, détection de fraude/AML) | Apache NiFi, Apache Kafka, Spark Structured Streaming |
+| **Level 4** | Extension temps réel (ingestion streaming, détection de fraude/AML) | Apache NiFi, Apache Kafka, Spark Structured Streaming |
 
 Ce README donne toutes les étapes pour déployer et exécuter le projet de bout en bout, niveau par niveau.
 
@@ -25,7 +26,7 @@ Ce README donne toutes les étapes pour déployer et exécuter le projet de bout
 
 ```bash
 git clone https://github.com/AbrahamNebout/ArtefactChallenge.git
-cd ArtefactChallenge
+cd ArtefactChallenge/
 ```
 
 ---
@@ -57,7 +58,11 @@ Accède à l'application : **http://localhost:8501**
 3. Clique sur **Générer et envoyer vers MinIO** (un aperçu s'affiche).
 4. Répète pour chacun des 4 types de données.
 
+### 1.3 Accèder à minio
 Vérifie ensuite dans MinIO que les fichiers sont bien arrivés : **http://localhost:9001**
+Connecter vous avec : 
+user : minioadmin
+pass: minioadmin123
 
 ### 1.3 Ingérer les données dans Iceberg via Spark
 
