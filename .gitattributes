@@ -1,0 +1,5 @@
+# Force les fins de ligne Unix (LF) pour les scripts shell, quelle que soit
+# la config core.autocrlf locale -- évite les erreurs "$'\r': command not
+# found" quand un script édité/committé sous Windows est monté dans un
+# conteneur Linux (cf topics.sh, Level 3).
+*.sh text eol=lf
