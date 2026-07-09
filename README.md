@@ -113,7 +113,9 @@ Dossiers concernés : `data-generator/`, `infra/`, `airflow/`.
 
 ### 2.1 Régénérer des données fraîches
 
-Les transactions du Level 1 ont été **archivées** lors de leur ingestion (déplacées de `raw-landing` vers `archive`) — il faut donc régénérer de nouveaux référentiels et de nouvelles données transactionnelles depuis l'appli Streamlit (mêmes étapes que 1.2), sans les ré-ingérer manuellement cette fois : c'est Airflow qui va s'en charger.
+Les transactions du Level 1 ont été **archivées** lors de leur ingestion (déplacées de `raw-landing` vers `archive`) — il faut donc régénérer de nouveaux données. Les données de référentiels ne sont pas obligatoire, vous pouvez utiliser celle deja generés ou en generé de nouvelles, Mais vous devez obligatoirement generé de nouvelles données transactionnelles depuis l'appli Streamlit (mêmes étapes que 1.2), sans les ré-ingérer manuellement cette fois : c'est Airflow qui va s'en charger.
+
+Conserver la meme date que celle proposer par l'interface, les scripts airflow sont configurés sur cette perriode.
 
 ### 2.2 Construire l'image Spark utilisée par Airflow
 
