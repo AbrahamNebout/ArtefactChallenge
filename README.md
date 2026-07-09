@@ -61,8 +61,10 @@ Accède à l'application : **http://localhost:8501**
 ### 1.3 Accèder à minio
 Vérifie ensuite dans MinIO que les fichiers sont bien arrivés : **http://localhost:9001**
 Connecter vous avec : 
-user : minioadmin
-pass: minioadmin123
+
+- user : minioadmin
+- pass: minioadmin123
+
 
 ### 1.3 Ingérer les données dans Iceberg via Spark
 
