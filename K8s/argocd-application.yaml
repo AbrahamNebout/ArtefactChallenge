@@ -1,0 +1,52 @@
+# argocd-application.yaml
+#
+# Objet ArgoCD "Application" : remplace deploy.sh comme point d'entrée de
+# déploiement. Une fois ce manifeste appliqué UNE SEULE FOIS (kubectl apply),
+# tout push sur le repo Git (n'importe quel fichier sous
+# level4/helm/waba-platform/) déclenche automatiquement une resynchronisation
+# du cluster -- plus besoin de relancer une commande manuellement ensuite.
+#
+# ⚠️ À COMPLÉTER avant d'appliquer : remplace repoURL par l'URL réelle du
+# repo GitHub, et targetRevision si tu ne travailles pas sur main/master.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: waba-platform
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/AbrahamNebout/ArtefactChallenge
+    targetRevision: master
+    path: K8s/values
+    helm:
+      valueFiles:
+        - minio_values.yaml
+        # Ajouter une ligne ici à chaque nouveau composant :
+        # - values/kafka.yaml
+        # - values/airflow.yaml
+        # - values/nifi.yaml
+        # - values/trino.yaml
+        # - values/keycloak.yaml
+        # - values/openmetadata.yaml
+        # - values/monitoring.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: processing   # namespace de la release Helm elle-même
+                             # (chaque appli va dans SON namespace via
+                             # namespaceOverride, cf values/*.yaml)
+
+  syncPolicy:
+    automated:
+      prune: true      # supprime du cluster ce qui a été retiré du repo Git
+      selfHeal: true    # si quelqu'un modifie le cluster à la main, ArgoCD revient à l'état Git
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

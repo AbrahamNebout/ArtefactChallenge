@@ -1,0 +1,39 @@
+# namespaces.yaml
+#
+# Un namespace par domaine fonctionnel, comme demandé au 4.1 du cahier des
+# charges -- isole les ressources (Pods, Services, ConfigMaps, PVC...) par
+# grande fonction de la plateforme, plutôt que de tout mettre dans "default".
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingestion
+  labels:
+    domain: ingestion
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: processing
+  labels:
+    domain: processing
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: serving
+  labels:
+    domain: serving
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: governance
+  labels:
+    domain: governance
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    domain: monitoring
