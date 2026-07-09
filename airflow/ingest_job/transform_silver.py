@@ -172,10 +172,6 @@ def transform(spark: SparkSession, data_type: str, date_str: str | None = None):
     df = add_eur_columns(df, AMOUNT_COLUMNS[data_type])
 
     # --- 4. Jointure avec les référentiels ---
-    # Important : "accounts" est joint AVANT "customers". Certains types de
-    # données (bank_transactions) ne portent ni customer_id ni sender_id,
-    # seulement account_id -> il faut d'abord remonter le customer_id via
-    # accounts.customer_id avant de pouvoir joindre customers.
     if "accounts" in JOIN_SPECS[data_type]:
         accounts = spark.table("lakehouse.bronze.accounts").select(
             F.col("account_id").alias("_acc_id"),
