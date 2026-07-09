@@ -15,8 +15,16 @@ mobile_money) :
   4. Convertit les montants en EUR (mêmes taux fixes que le Level 2, pour
      rester cohérent entre batch et streaming — cf architecture Lambda)
   5. Double sink : écrit le résultat à la fois dans le topic Kafka silver-*
-     ET dans la table Iceberg silver.* (foreachBatch, pattern standard Spark
-     pour un sink multiple depuis une seule requête de streaming)
+     ET dans une table Iceberg dédiée lakehouse.silver.<type>_stream
+     (foreachBatch, pattern standard Spark pour un sink multiple depuis une
+     seule requête de streaming)
+
+Table Iceberg volontairement SÉPARÉE de celle du batch
+(lakehouse.silver.<type>_stream, pas lakehouse.silver.<type>) : le streaming
+n'enrichit pas via les référentiels (pas de jointure ici, contrairement à
+transform_silver.py), donc son schéma est plus étroit -- on ne veut pas
+mélanger deux schémas différents dans la même table. Les deux tables
+restent interrogeables séparément (et joignables) via Trino.
 
 Usage: spark-submit stream_raw_to_silver.py --data_type bank_transactions
 """
@@ -153,11 +161,11 @@ def add_eur_columns(df, amount_cols: list):
     return df
 
 
-def ensure_silver_table_exists(spark: SparkSession, data_type: str, sample_df):
-    """Crée la table Silver si elle n'existe pas déjà (le batch Level 2 l'a
-    probablement déjà fait — ce garde-fou permet au streaming de tourner
-    même en tout premier, avant tout run du DAG bronze_to_silver)."""
-    table_name = f"lakehouse.silver.{data_type}"
+def ensure_silver_stream_table_exists(spark: SparkSession, table_name: str, sample_df):
+    """Crée la table Silver STREAMING dédiée si elle n'existe pas déjà.
+    Séparée de la table batch (lakehouse.silver.<type>) : schéma plus étroit
+    ici (pas de jointure avec les référentiels), donc pas question d'écrire
+    dans la même table que le batch."""
     if not spark.catalog.tableExists(table_name):
         sample_df.limit(0).writeTo(table_name).using("iceberg") \
             .partitionedBy("country_code", F.days("timestamp")).createOrReplace()
@@ -169,7 +177,9 @@ def make_write_microbatch(data_type: str):
     Iceberg + Kafka), avec conversion EUR appliquée à chaque micro-batch."""
     amount_cols = AMOUNT_COLUMNS[data_type]
     silver_topic = SILVER_TOPICS[data_type]
-    table_name = f"lakehouse.silver.{data_type}"
+    # Table dédiée au streaming, distincte de la table batch
+    # (lakehouse.silver.<type>) -- cf docstring du module.
+    table_name = f"lakehouse.silver.{data_type}_stream"
 
     def _write(batch_df, batch_id: int):
         if batch_df.rdd.isEmpty():
@@ -179,14 +189,13 @@ def make_write_microbatch(data_type: str):
 
         # mobile_money n'a pas de country_code natif dans son schéma JSON
         # (seulement sender_country/receiver_country) -- même règle que
-        # Bronze (ingest_raw.py, Level 2) pour rester cohérent avec le
-        # schéma déjà établi de lakehouse.silver.mobile_money.
+        # Bronze (ingest_raw.py, Level 2) pour rester cohérent.
         if data_type == "mobile_money" and "country_code" not in enriched_df.columns:
             enriched_df = enriched_df.withColumn("country_code", F.col("sender_country"))
 
-        ensure_silver_table_exists(batch_df.sparkSession, data_type, enriched_df)
+        ensure_silver_stream_table_exists(batch_df.sparkSession, table_name, enriched_df)
 
-        # --- Sink 1 : Iceberg (silver.*) ---
+        # --- Sink 1 : Iceberg (silver.<type>_stream) ---
         enriched_df.writeTo(table_name).append()
 
         # --- Sink 2 : Kafka (silver-*) ---
@@ -266,7 +275,7 @@ def main():
     )
 
     print(f"🚀 Job 1 démarré pour {data_type} — "
-          f"{RAW_TOPICS[data_type]} -> [{SILVER_TOPICS[data_type]} + {'lakehouse.silver.' + data_type}]")
+          f"{RAW_TOPICS[data_type]} -> [{SILVER_TOPICS[data_type]} + lakehouse.silver.{data_type}_stream]")
 
     spark.streams.awaitAnyTermination()
 
