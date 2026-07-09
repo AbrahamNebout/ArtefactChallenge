@@ -162,6 +162,8 @@ Dans le menu **Admin → Variables**, importe le fichier `waba_variables.json` (
 - Pour éviter les erreurs de démarrage en cascade, lance les DAGs **de façon successive** plutôt que tous en même temps. Si une tâche `gate` passe au rouge, relance-la simplement.
 - Une fois les jobs de données transactionnelles exécutés avec succès, les fichiers traités sont **archivés** dans MinIO (déplacés de `raw-landing` vers `archive`) et les tables Iceberg correspondantes sont créées/mises à jour automatiquement dans le lakehouse.
 
+- Vous Pouvez acceder a trino et voir les tables iceberg crées
+
 **✅ Level 2 terminé.**
 
 ---
