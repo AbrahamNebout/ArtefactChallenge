@@ -19,10 +19,10 @@ spec:
   source:
     repoURL: https://github.com/AbrahamNebout/ArtefactChallenge
     targetRevision: master
-    path: K8s/values
+    path: K8s/helm/waba-platform
     helm:
       valueFiles:
-        - minio_values.yaml
+        - values/minio_values.yaml
         # Ajouter une ligne ici à chaque nouveau composant :
         # - values/kafka.yaml
         # - values/airflow.yaml
