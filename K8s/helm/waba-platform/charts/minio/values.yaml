@@ -77,8 +77,8 @@ extraDeploy: []
 ##
 image:
   registry: docker.io
-  repository: bitnami/minio
-  tag: 2025.7.23-debian-12-r3
+  repository: bitnamilegacy/minio
+  tag: 2025.7.23-debian-12-r5
   digest: ""
   ## Specify a imagePullPolicy
   ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
@@ -112,7 +112,7 @@ clientImage:
 auth:
   ## @param auth.rootUser MinIO&reg; root username
   ##
-  rootUser: admin
+  rootUser: ""
   ## @param auth.rootPassword Password for MinIO&reg; root user
   ##
   rootPassword: ""
@@ -121,7 +121,7 @@ auth:
   existingSecret: ""
   ## @param auth.rootUserSecretKey Key where the MINIO_ROOT_USER username is being stored inside the existing secret `auth.existingSecret`
   ##
-  rootUserSecretKey: ""
+  rootUserSecretKey: "minio-credentials"
   ## @param auth.rootPasswordSecretKey Key where the MINIO_ROOT_USER password is being stored inside the existing secret `auth.existingSecret`
   ##
   rootPasswordSecretKey: ""

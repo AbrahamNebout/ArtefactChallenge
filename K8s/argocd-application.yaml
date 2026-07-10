@@ -22,7 +22,7 @@ spec:
     path: K8s/helm/waba-platform
     helm:
       valueFiles:
-        - values/minio_values.yaml
+        - charts\minio\values.yaml
         # Ajouter une ligne ici à chaque nouveau composant :
         # - values/kafka.yaml
         # - values/airflow.yaml
