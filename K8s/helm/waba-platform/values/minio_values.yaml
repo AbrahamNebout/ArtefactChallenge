@@ -104,8 +104,8 @@ image:
 ##
 clientImage:
   registry: docker.io
-  repository: bitnami/minio-client
-  tag: 2025.7.21-debian-12-r2
+  repository: bitnamilegacy/minio-client
+  tag: 2025.7.23-debian-12-r5
   digest: ""
 ## MinIO&reg; authentication parameters
 ##
@@ -510,7 +510,7 @@ defaultInitContainers:
     ##
     image:
       registry: docker.io
-      repository: bitnami/os-shell
+      repository: bitnamilegacy/os-shell
       tag: 12-debian-12-r50
       digest: ""
       pullPolicy: IfNotPresent
@@ -569,7 +569,7 @@ defaultInitContainers:
 service:
   ## @param service.type MinIO&reg; service type
   ##
-  type: nodePorts
+  type: nodePort
   ## @param service.ports.api MinIO&reg; API service port
   ##
   ports:
@@ -943,7 +943,7 @@ console:
   ##
   image:
     registry: docker.io
-    repository: bitnami/minio-object-browser
+    repository: bitnamilegacy/minio-object-browser
     tag: 2.0.2-debian-12-r3
     digest: ""
     ## Specify a imagePullPolicy
