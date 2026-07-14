@@ -1,0 +1,62 @@
+minio:
+  persistence:
+    size: 5Gi
+  buckets:
+    - name: raw-landing
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+    - name: lakehouse
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+    - name: archive
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+
+airflow:
+  images:
+    airflow:
+      repository: abraneb97/mci-airflow
+      tag: "latest"
+      pullPolicy: IfNotPresent 
+
+  dags:
+    gitSync:
+      enabled: true
+      repo: https://github.com/AbrahamNebout/ArtefactChallenge.git
+      branch: master
+      rev: HEAD
+      ref: v2-2-stable
+      depth: 1
+      maxFailures: 0
+      subPath: "K8s/dag"
+      credentialsSecret: git-credentials 
+
+
+spark-operator:
+  sparkJobNamespaces:
+    - default
+
+  webhook:
+    enable: true
+  
+
+
+dataGenerator:
+  enabled: true
+
+  image:
+    repository: abraneb97/app-generator-k8s
+    tag: "latest"         
+    pullPolicy: IfNotPresent
+
+  service:
+    type: NodePort
+    nodePort: 30911
+
+  resources: {}
