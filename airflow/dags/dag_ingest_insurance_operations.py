@@ -13,6 +13,7 @@ de conteneur Spark pour rien.
 Rattrapage sélectif : déclenchement manuel avec un paramètre country_codes.
 """
 from datetime import datetime
+from datetime import timedelta
 from airflow.sdk import Asset
 from airflow import DAG
 from airflow.models import Param
@@ -24,6 +25,23 @@ from comon.waba_common import (
     make_spark_task, alert_on_failure, check_file_exists,
     COUNTRIES, FILE_PREFIXES,make_ensure_table_task
 )
+
+default_args = {
+    "on_failure_callback": alert_on_failure,  
+    "retries": 3,
+    "retry_delay": timedelta(minutes=2),
+    "retry_exponential_backoff": True,
+    "max_retry_delay": timedelta(minutes=20),
+}
+
+
+RETRY_KWARGS = {
+    "retries": 3,
+    "retry_delay": timedelta(minutes=1),
+    "retry_exponential_backoff": True,
+    "max_retry_delay": timedelta(minutes=10),
+}
+
 
 
 DATA_TYPE = "insurance_operations"
@@ -43,7 +61,7 @@ with DAG(
     catchup=True,
     max_active_runs=2,
     max_active_tasks=8,
-    default_args={"on_failure_callback": alert_on_failure},
+    default_args=default_args,
     tags=["waba", "level2", "bronze", DATA_TYPE],
     params={
         "country_codes": Param(
@@ -59,6 +77,7 @@ with DAG(
             task_id=f"gate_{country}",
             python_callable=check_country,
             op_kwargs={"country": country},
+            **RETRY_KWARGS,
         )
 
         check_file = PythonOperator(
@@ -69,6 +88,7 @@ with DAG(
                 "data_type": DATA_TYPE,
                 "prefix": FILE_PREFIXES[DATA_TYPE],
             },
+            **RETRY_KWARGS,
         )
 
         txn_task = make_spark_task(
