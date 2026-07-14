@@ -47,7 +47,7 @@ from airflow.providers.cncf.kubernetes.sensors.spark_kubernetes import (
 
 SPARK_IMAGE = "abraneb97/sparkjob:latest"
 SPARK_VERSION = "3.5.0"
-NAMESPACE = "waba"
+NAMESPACE = "default"
 SERVICE_ACCOUNT = "spark"
 IVY_CACHE_PVC = "spark-ivy-cache-pvc"
 KUBERNETES_CONN_ID = "kubernetes_default"
