@@ -16,7 +16,8 @@ import logging
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 
-SPARK_IMAGE = "sparkjob:latest"
+
+SPARK_IMAGE = "abraneb97/sparkjob:latest"
 IVY_CACHE_VOLUME = "artefact_project_spark-ivy-cache"
 
 COUNTRIES = ["CI", "SN", "ML", "BF", "GN", "TG", "BJ", "GH"]

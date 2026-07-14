@@ -31,11 +31,10 @@ airflow:
       repo: https://github.com/AbrahamNebout/ArtefactChallenge.git
       branch: master
       rev: HEAD
-      ref: v2-2-stable
       depth: 1
       maxFailures: 0
       subPath: "K8s/dag"
-      credentialsSecret: git-credentials 
+      credentialsSecret: git-credentials
 
 
 spark-operator:
