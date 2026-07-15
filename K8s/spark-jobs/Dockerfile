@@ -1,11 +1,10 @@
 FROM eclipse-temurin:17-jre-jammy
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip curl \
+    python3 python3-pip curl tini \
  && rm -rf /var/lib/apt/lists/* \
  && ln -s /usr/bin/python3 /usr/bin/python
 
-# --- Téléchargement de la distribution Spark COMPLÈTE (pas juste pip) ---
 ARG SPARK_VERSION=3.5.1
 ARG HADOOP_VERSION=3
 ENV SPARK_HOME=/opt/spark
@@ -27,5 +26,4 @@ COPY . .
 
 ENV SPARK_CONF_DIR=/app/conf
 
-# --- L'entrypoint officiel Spark, celui qui comprend "driver"/"executor" ---
 ENTRYPOINT ["/opt/spark/kubernetes/dockerfiles/spark/entrypoint.sh"]
