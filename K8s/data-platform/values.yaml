@@ -24,6 +24,11 @@ airflow:
       repository: abraneb97/mci-airflow
       tag: "latest"
       pullPolicy: IfNotPresent 
+  config:
+    kubernetes_executor:
+      delete_worker_pods: "False"
+    core:
+      dagbag_import_timeout: "120"
 
   dags:
     gitSync:

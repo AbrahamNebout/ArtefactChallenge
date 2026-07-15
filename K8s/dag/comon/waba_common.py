@@ -36,6 +36,7 @@ import logging
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.models import Variable
 import boto3
+import yaml
 
 from airflow.providers.cncf.kubernetes.operators.spark_kubernetes import (
     SparkKubernetesOperator,
@@ -144,7 +145,7 @@ def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator,
     submit = SparkKubernetesOperator(
         task_id=task_id,
         namespace=NAMESPACE,
-        application_file=spec,
+        application_file=yaml.dump(spec),
         kubernetes_conn_id=KUBERNETES_CONN_ID,
         do_xcom_push=True,
         on_failure_callback=alert_on_failure,
