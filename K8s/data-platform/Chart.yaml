@@ -16,3 +16,7 @@ dependencies:
   - name: spark-operator
     version: "2.5.1"
     repository: ""
+
+  - name: trino
+    version: "1.42.2"
+    repository: ""

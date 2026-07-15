@@ -59,3 +59,15 @@ dataGenerator:
     nodePort: 30911
 
   resources: {}
+
+trino: {}
+
+iceberg:
+  enabled: true
+  warehouseBucket: lakehouse   # bucket déjà déclaré dans minio.buckets, cohérent
+  postgres:
+    user: iceberg
+    password: iceberg          # à remplacer par un Secret externe en vrai contexte prod
+    database: iceberg_catalog
+    persistence:
+      size: 2Gi
