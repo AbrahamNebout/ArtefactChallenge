@@ -46,7 +46,7 @@ from airflow.providers.cncf.kubernetes.sensors.spark_kubernetes import (
 )
 
 
-SPARK_IMAGE = "abraneb97/spark_job_k8s:v1"
+SPARK_IMAGE = "abraneb97/spark_job_k8s:v2"
 SPARK_VERSION = "3.5.0"
 NAMESPACE = "default"
 SERVICE_ACCOUNT = "spark"
