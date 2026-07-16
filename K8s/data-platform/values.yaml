@@ -83,10 +83,9 @@ iceberg:
       size: 2Gi
 
 
-
 streamingJobs:
   enabled: true
-  image: abraneb97/stream_image:v1
+  image: abraneb97/stream_image_k8s:v1
   rawToSilverJobs:
     - bank_transactions
     - insurance_operations
@@ -97,7 +96,6 @@ streamingJobs:
     - fraud_claim_ratio
     - aml_threshold
     - liquidity_alerts
-
 
 kafka:
   provisioning:

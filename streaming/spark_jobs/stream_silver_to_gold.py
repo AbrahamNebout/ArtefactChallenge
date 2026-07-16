@@ -33,7 +33,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-KAFKA_BROKERS = "kafka:29092"
+KAFKA_BROKERS = os.environ.get("KAFKA_BROKERS", "kafka:29092")
 
 # ============================================================================
 # Seuils réglementaires / métier -- à vérifier/ajuster avec le métier

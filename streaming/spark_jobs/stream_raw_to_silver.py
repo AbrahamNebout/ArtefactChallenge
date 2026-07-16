@@ -37,7 +37,7 @@ from pyspark.sql.types import (
     StructType, StructField, StringType, DoubleType, IntegerType,
 )
 
-KAFKA_BROKERS = "kafka:29092"
+KAFKA_BROKERS = os.environ.get("KAFKA_BROKERS", "kafka:29092")
 DLQ_TOPIC = "dlq-financial-events"
 
 # --- Taux de conversion fixes vers EUR (mêmes hypothèses que Level 2 batch,
