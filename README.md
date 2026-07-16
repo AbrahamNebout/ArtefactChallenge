@@ -117,19 +117,16 @@ Les transactions du Level 1 ont été **archivées** lors de leur ingestion (dé
 
 Conserver la meme date que celle proposer par l'interface, les scripts airflow sont configurés sur cette perriode.
 
-### 2.2 Construire l'image Spark utilisée par Airflow
+### 2.2 Acceder au dossier et cree le .env
 
 ```bash
-cd airflow/ingest_job
-docker build -t sparkjob .
-cd ..
+cd airflow
 ```
+Dans le dossier airflow, cree un ficher .env et inserer ***AIRFLOW_UID=50000***
 
-Cette image est réutilisée par toutes les tâches Spark déclenchées par Airflow — étape indispensable avant de démarrer le compose.
 
 ### 2.3 Démarrer Airflow
 
-Dans le dossier airflow, cree un ficher .env et inserer ***AIRFLOW_UID=50000***
 
 ```bash
 docker compose up -d
@@ -191,19 +188,12 @@ cd streaming
 | `stream-aml-threshold` | Job 2 : détection des virements dépassant le seuil déclaratif BCEAO/CIMA, publie dans `gold-aml-events` |
 | `stream-liquidity-alerts` | Job 2 : surveillance du solde net glissant par pays, publie dans `gold-liquidity-alerts` |
 
-### 3.2 Construire l'image Spark Streaming
+### 3.2 Acceder au dossier er cree le .env
 
 ```bash
 cd spark_jobs
-docker build -t stream_image .
-cd ..
 ```
-
-Cette image est réutilisée par tous les conteneurs `stream-*` du compose — indispensable avant de démarrer.
-
-### 3.3 Démarrer le stack
-
-A la racine du dossier streaming, crée un ficher .env avec le contenu suivant 
+Creer un ficher .env avec le contenu 
 
 ```bash
 KAFKA_CLUSTER_ID=0yJKRjynSOCyxUyk9sNtZw
@@ -216,11 +206,13 @@ ICEBERG_CATALOG_URI=http://iceberg-rest:8181
 ```
 
 
+### 3.3 Démarrer le stack
+
 ```bash
 docker compose up -d
 ```
 
-Ça démarre NiFi, Kafka, et tous les jobs Spark Streaming. Patiente quelques minutes le temps du téléchargement des images et de l'initialisation des services.
+Ça démarre NiFi, Kafka, et tous les jobs Spark Streaming. Patiente 5-8 minutes environ le temps du téléchargement des images et de l'initialisation des services.
 
 ### 3.4 Accéder aux interfaces
 
@@ -235,7 +227,7 @@ Les topics doivent déjà apparaître (créés automatiquement au démarrage).
 
 Retourne sur l'application Streamlit (Level 1) :
 1. Rafraîchis la page.
-2. Régénère de nouveaux référentiels.
+2. Régénère de nouveaux référentiels et envoye les vers minio
 3. Dans la section données transactionnelles, choisis le mode **Continue**.
 4. Ajuste l'intervalle de génération, le nombre de lignes par cycle, et les pays souhaités.
 5. Coche **Démarrer la génération continue**.
@@ -256,7 +248,7 @@ Double-clique sur le processeur **ListS3** → onglet Properties → renseigne :
 - Secret Key : `minioadmin123`
 → **Apply**
 
-Répète exactement la même chose sur le processeur **FetchS3Object**.
+Répète exactement la même chose sur le processeur **FetchS3Object** le deuxieme element du job.
 
 **Étape 2 — Activer les Controller Services :**
 1. Clic droit sur une zone vide du canvas → **Configure** → onglet **Controller Services**.

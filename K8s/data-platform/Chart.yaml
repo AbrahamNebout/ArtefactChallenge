@@ -20,3 +20,15 @@ dependencies:
   - name: trino
     version: "1.42.2"
     repository: ""
+
+  - name: kafka
+    version: "32.4.3"
+    repository: ""
+
+  - name: kafka-ui
+    version: "0.7.6"
+    repository: ""
+
+  - name: nifi
+    version: "1.2.1"
+    repository: ""

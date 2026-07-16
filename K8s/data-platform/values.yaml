@@ -34,7 +34,7 @@ airflow:
       remote_logging: "True"
       remote_base_log_folder: "s3://airflow-logs/"
       remote_log_conn_id: "minio_s3_conn"
-      
+
   dags:
     gitSync:
       enabled: true
@@ -81,3 +81,114 @@ iceberg:
     database: iceberg_catalog
     persistence:
       size: 2Gi
+
+
+
+streamingJobs:
+  enabled: true
+  image: abraneb97/stream_image:v1
+  rawToSilverJobs:
+    - bank_transactions
+    - insurance_operations
+    - mobile_money
+  silverToGoldJobs:
+    - fraud_multiple_txn
+    - fraud_unusual_country
+    - fraud_claim_ratio
+    - aml_threshold
+    - liquidity_alerts
+
+
+kafka:
+  provisioning:
+    enabled: true
+    waitForKafka: true
+    useHelmHooks: true
+    numPartitions: 2
+    replicationFactor: 1
+    topics:
+      - name: raw-bank-transactions
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: raw-insurance-operations
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: raw-mobile-money-payments
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: dlq-financial-events
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: gold-liquidity-alerts
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: raw-loan-repayments
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: gold-aml-events
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: silver-bank-transactions
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: silver-insurance-operations
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: gold-fraud-alerts
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: silver-mobile-money
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+kafka-ui:
+  yamlApplicationConfig:
+    kafka:
+      clusters:
+        - name: yaml
+          bootstrapServers: data-platform-kafka:9092
+
+nifi: {}

@@ -1,0 +1,123 @@
+{{- if .Values.streamingJobs.enabled }}
+{{- $env := list
+  (dict "name" "MINIO_ENDPOINT" "value" (printf "http://%s-minio:9000" .Release.Name))
+  (dict "name" "ICEBERG_CATALOG_URI" "value" (printf "http://%s-iceberg-rest:8181" .Release.Name))
+}}
+{{- $minioSecretEnv := list
+  (dict "name" "MINIO_ACCESS_KEY" "secretName" "minio-credentials" "secretKey" "rootUser")
+  (dict "name" "MINIO_SECRET_KEY" "secretName" "minio-credentials" "secretKey" "rootPassword")
+  (dict "name" "AWS_ACCESS_KEY_ID" "secretName" "minio-credentials" "secretKey" "rootUser")
+  (dict "name" "AWS_SECRET_ACCESS_KEY" "secretName" "minio-credentials" "secretKey" "rootPassword")
+}}
+
+{{- range .Values.streamingJobs.rawToSilverJobs }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-stream-{{ . | replace "_" "-" }}
+  labels:
+    app: stream-{{ . | replace "_" "-" }}
+    release: {{ $.Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stream-{{ . | replace "_" "-" }}
+      release: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: stream-{{ . | replace "_" "-" }}
+        release: {{ $.Release.Name }}
+    spec:
+      containers:
+        - name: stream-job
+          image: {{ $.Values.streamingJobs.image }}
+          command: ["spark-submit", "/app/stream_raw_to_silver.py", "--data_type", {{ . | quote }}]
+          env:
+            {{- range $e := $env }}
+            - name: {{ $e.name }}
+              value: {{ $e.value | quote }}
+            {{- end }}
+            {{- range $e := $minioSecretEnv }}
+            - name: {{ $e.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $e.secretName }}
+                  key: {{ $e.secretKey }}
+            {{- end }}
+            - name: AWS_REGION
+              value: "us-east-1"
+          volumeMounts:
+            - name: ivy-cache
+              mountPath: /root/.ivy2
+      volumes:
+        - name: ivy-cache
+          persistentVolumeClaim:
+            claimName: spark-ivy-cache-pvc
+{{- end }}
+
+{{- range .Values.streamingJobs.silverToGoldJobs }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-stream-{{ . | replace "_" "-" }}
+  labels:
+    app: stream-{{ . | replace "_" "-" }}
+    release: {{ $.Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stream-{{ . | replace "_" "-" }}
+      release: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: stream-{{ . | replace "_" "-" }}
+        release: {{ $.Release.Name }}
+    spec:
+      containers:
+        - name: stream-job
+          image: {{ $.Values.streamingJobs.image }}
+          command: ["spark-submit", "/app/stream_silver_to_gold.py", "--job", {{ . | quote }}]
+          env:
+            {{- range $e := $env }}
+            - name: {{ $e.name }}
+              value: {{ $e.value | quote }}
+            {{- end }}
+            {{- range $e := $minioSecretEnv }}
+            - name: {{ $e.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $e.secretName }}
+                  key: {{ $e.secretKey }}
+            {{- end }}
+            - name: AWS_REGION
+              value: "us-east-1"
+          volumeMounts:
+            - name: ivy-cache
+              mountPath: /root/.ivy2
+            - name: checkpoint
+              mountPath: /tmp/checkpoints
+      volumes:
+        - name: ivy-cache
+          persistentVolumeClaim:
+            claimName: spark-ivy-cache-pvc
+        - name: checkpoint
+          persistentVolumeClaim:
+            claimName: {{ $.Release.Name }}-checkpoint-{{ . | replace "_" "-" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $.Release.Name }}-checkpoint-{{ . | replace "_" "-" }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+{{- end }}
+{{- end }}
