@@ -58,7 +58,7 @@ NAMESPACE = "default"
 SERVICE_ACCOUNT = "spark"
 IVY_CACHE_PVC = "spark-ivy-cache-pvc"
 KUBERNETES_CONN_ID = "kubernetes_default"
-TTL_SECONDS_AFTER_FINISHED = 1800  # délai avant suppression auto des pods
+TTL_SECONDS_AFTER_FINISHED = 120  # délai avant suppression auto des pods
 
 COUNTRIES = ["CI", "SN", "ML", "BF", "GN", "TG", "BJ", "GH"]
 
@@ -176,9 +176,18 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
         },
     }
 
-def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator, SparkKubernetesSensor]:
-    """Crée la paire (soumission, sensor d'attente) déjà chaînée."""
-    app_name = spec["metadata"]["name"]  # contient déjà "-{{ ds_nodash }}"
+def _submit_and_wait(task_id: str, spec: dict) -> SparkKubernetesOperator:
+    """
+    Soumet et ATTEND la fin du job Spark en une seule tâche.
+    Dans cette version du provider (10.17.1+), SparkKubernetesOperator
+    surveille déjà nativement le pod driver et lève une exception en cas
+    d'échec -- plus besoin d'un sensor séparé, qui arrive systématiquement
+    trop tard : le spark-operator supprime la SparkApplication et son pod
+    driver quasi immédiatement après la fin du job (COMPLETED ou FAILED),
+    indépendamment de timeToLiveSeconds. Le sensor perdait donc toujours
+    la course contre cette suppression.
+    """
+    app_name = spec["metadata"]["name"]
 
     submit = SparkKubernetesOperator(
         task_id=task_id,
@@ -189,16 +198,7 @@ def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator,
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
-    sensor = SparkKubernetesSensor(
-        task_id=f"{task_id}_wait",
-        namespace=NAMESPACE,
-        application_name=app_name,
-        kubernetes_conn_id=KUBERNETES_CONN_ID,
-        on_failure_callback=alert_on_failure,
-        **DEFAULT_TASK_KWARGS,
-    )
-    submit >> sensor
-    return submit, sensor
+    return submit
 
 
 def make_spark_task(task_id: str, data_type: str, country: str | None = None,

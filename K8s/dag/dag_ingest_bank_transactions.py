@@ -74,11 +74,9 @@ with DAG(
 
         # make_spark_task retourne maintenant DEUX tâches déjà chaînées
         # (submit >> wait). On branche l'amont sur `submit`.
-        submit, wait = make_spark_task(
+        submit = make_spark_task(
             f"ingest_{DATA_TYPE}_{country}", DATA_TYPE, country,
             use_logical_date=True,
         )
-        # outlets géré manuellement côté DAG (voir note dans waba_common.py)
-        wait.outlets = [BRONZE_OUTPUT]
 
         gate >> check_file >> submit
