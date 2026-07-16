@@ -10,5 +10,6 @@ data/
 .vscode/
 minio-data/
 etape.txt
+etape2.txt
 airflow\dags\__pycache__
 airflow/dags/__pycache__
