@@ -32,3 +32,7 @@ dependencies:
   - name: nifi
     version: "1.2.1"
     repository: ""
+
+  - name: kube-prometheus-stack
+    version: "87.15.1"
+    repository: ""

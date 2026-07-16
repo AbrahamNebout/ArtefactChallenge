@@ -190,3 +190,13 @@ kafka-ui:
           bootstrapServers: data-platform-kafka:9092
 
 nifi: {}
+
+kube-prometheus-stack:
+  grafana:
+    admin:
+      existingSecret: grafana-admin-credentials
+      userKey: admin-user
+      passwordKey: admin-password
+    service:
+      type: NodePort
+      nodePort: 30909
