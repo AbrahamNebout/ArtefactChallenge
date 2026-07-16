@@ -52,7 +52,7 @@ NAMESPACE = "default"
 SERVICE_ACCOUNT = "spark"
 IVY_CACHE_PVC = "spark-ivy-cache-pvc"
 KUBERNETES_CONN_ID = "kubernetes_default"
-TTL_SECONDS_AFTER_FINISHED = 300  # délai avant suppression auto des pods
+TTL_SECONDS_AFTER_FINISHED = 1800  # délai avant suppression auto des pods
 
 COUNTRIES = ["CI", "SN", "ML", "BF", "GN", "TG", "BJ", "GH"]
 
