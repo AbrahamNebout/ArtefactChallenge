@@ -22,7 +22,6 @@ from airflow.sdk import Asset
 
 from comon.waba_common import make_spark_task, alert_on_failure, make_ensure_table_task
 
-BRONZE_REFERENTIALS = Asset("bronze://referentials")
 
 REFERENTIALS = ["customers", "branches", "products", "accounts"]
 
@@ -44,7 +43,6 @@ with DAG(
 
         ingest_task = make_spark_task(
             f"ingest_{name}", name,
-            outlets=[BRONZE_REFERENTIALS] if is_last else None,
         )
 
         ingest_task

@@ -1,22 +1,18 @@
 """
-dag_ingest_mobile_money.py
+dag_ingest_bank_transactions.py
 
-Ingestion quotidienne des paiements mobile money vers Bronze.
-Planifié chaque jour à 01h00 UTC : le "logical_date" de chaque exécution
-correspond automatiquement à la VEILLE (J-1).
-
-ensure_table_mobile_money s'exécute UNE SEULE FOIS avant les 8 branches
-pays en parallèle, pour éviter la race condition de CREATE TABLE
-concurrent sur le catalogue Iceberg.
+Ingestion quotidienne des transactions bancaires vers Bronze — version K8s
+(Spark Operator). Planifié chaque jour à 01h00 UTC : le "logical_date" de
+chaque exécution correspond automatiquement à la VEILLE (J-1).
 
 Pour chaque pays : gate (sélection) -> check_file (vérifie la présence du
-CSV du jour) -> ingestion. Si le fichier est absent, check_file échoue et
-la tâche d'ingestion ne s'exécute jamais (upstream_failed).
+CSV du jour) -> submit (soumet le SparkApplication) -> wait (sensor qui
+attend la fin réelle du job dans le pod driver K8s, supprimé automatiquement
+après TTL_SECONDS_AFTER_FINISHED).
 
 Rattrapage sélectif : déclenchement manuel avec un paramètre country_codes.
 """
 from datetime import datetime
-from datetime import timedelta
 from airflow.sdk import Asset
 from airflow import DAG
 from airflow.models import Param
@@ -26,26 +22,8 @@ from airflow.providers.standard.operators.python import (
 
 from comon.waba_common import (
     make_spark_task, alert_on_failure, check_file_exists,
-    COUNTRIES, FILE_PREFIXES, make_ensure_table_task,
+    COUNTRIES, FILE_PREFIXES,
 )
-
-default_args = {
-    "on_failure_callback": alert_on_failure,  
-    "retries": 3,
-    "retry_delay": timedelta(minutes=2),
-    "retry_exponential_backoff": True,
-    "max_retry_delay": timedelta(minutes=20),
-    "on_failure_callback": alert_on_failure
-}
-
-
-RETRY_KWARGS = {
-    "retries": 3,
-    "retry_delay": timedelta(minutes=1),
-    "retry_exponential_backoff": True,
-    "max_retry_delay": timedelta(minutes=10),
-}
-
 
 DATA_TYPE = "mobile_money"
 
@@ -57,15 +35,15 @@ def check_country(country: str, **context) -> bool:
 
 with DAG(
     dag_id=f"dag_ingest_{DATA_TYPE}",
-    description=f"Ingestion quotidienne de {DATA_TYPE} vers Bronze (traite J-1)",
+    description=f"Ingestion quotidienne de {DATA_TYPE} vers Bronze (traite J-1) — K8s",
     start_date=datetime(2026, 5, 10),
-    end_date=datetime(2026, 5, 12), 
+    end_date=datetime(2026, 5, 12),
     schedule="0 1 * * *",
     catchup=True,
     max_active_runs=2,
     max_active_tasks=8,
-    default_args=default_args,
-    tags=["waba", "level2", "bronze", DATA_TYPE],
+    default_args={"on_failure_callback": alert_on_failure},
+    tags=["waba", "level2", "bronze", DATA_TYPE, "k8s"],
     params={
         "country_codes": Param(
             default=[], type="array",
@@ -76,13 +54,11 @@ with DAG(
     },
 ) as dag:
 
-
     for country in COUNTRIES:
         gate = ShortCircuitOperator(
             task_id=f"gate_{country}",
             python_callable=check_country,
             op_kwargs={"country": country},
-            **RETRY_KWARGS,
         )
 
         check_file = PythonOperator(
@@ -93,12 +69,13 @@ with DAG(
                 "data_type": DATA_TYPE,
                 "prefix": FILE_PREFIXES[DATA_TYPE],
             },
-            **RETRY_KWARGS,
         )
 
-        txn_task = make_spark_task(
+        # make_spark_task retourne maintenant DEUX tâches déjà chaînées
+        # (submit >> wait). On branche l'amont sur `submit`.
+        submit = make_spark_task(
             f"ingest_{DATA_TYPE}_{country}", DATA_TYPE, country,
             use_logical_date=True,
         )
 
-        gate >> check_file >> txn_task
+        gate >> check_file >> submit

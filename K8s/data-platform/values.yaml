@@ -26,10 +26,15 @@ airflow:
       pullPolicy: IfNotPresent 
   config:
     kubernetes_executor:
-      delete_worker_pods: "False"
+      delete_worker_pods: "True"
     core:
       dagbag_import_timeout: "120"
 
+    logging:
+      remote_logging: "True"
+      remote_base_log_folder: "s3://airflow-logs/"
+      remote_log_conn_id: "minio_s3_conn"
+      
   dags:
     gitSync:
       enabled: true

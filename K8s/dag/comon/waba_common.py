@@ -255,7 +255,7 @@ def make_gold_task(task_id: str, kpi_name: str, **_ignored):
         main_file="/app/transform_gold.py",
         arguments=["--kpi", kpi_name],
     )
-    return _submit_and_wait(task_id, spec)
+    return _submit_and_wait(task_id, spec)  # retourne maintenant UNE tâche, pas un tuple
 
 
 def make_regulatory_report_task(task_id: str, use_logical_date: bool = True):

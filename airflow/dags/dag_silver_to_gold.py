@@ -33,7 +33,6 @@ from comon.waba_common import make_gold_task, alert_on_failure
 
 # Toujours publié en sortie (utile si un futur DAG venait s'y accrocher via
 # Asset -- ex: dag_regulatory_report pourrait migrer vers ce pattern plus tard).
-GOLD_READY = Asset("gold://all")
 
 KPIS = [
     "daily_transaction_volume",
@@ -71,6 +70,5 @@ with DAG(
     for i, kpi in enumerate(KPIS):
         gold_task = make_gold_task(
             f"gold_{kpi}", kpi,
-            outlets=[GOLD_READY] if i == len(KPIS) - 1 else None,
         )
         wait_for_silver >> gold_task

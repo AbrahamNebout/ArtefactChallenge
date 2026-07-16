@@ -43,7 +43,6 @@ RETRY_KWARGS = {
 }
 
 DATA_TYPE = "bank_transactions"
-BRONZE_OUTPUT = Asset(f"bronze://{DATA_TYPE}")
 
 
 
@@ -95,7 +94,6 @@ with DAG(
         txn_task = make_spark_task(
             f"ingest_{DATA_TYPE}_{country}", DATA_TYPE, country,
             use_logical_date=True,
-            outlets=[BRONZE_OUTPUT],
         )
 
 

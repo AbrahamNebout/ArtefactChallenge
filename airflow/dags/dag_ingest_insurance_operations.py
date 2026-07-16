@@ -45,7 +45,6 @@ RETRY_KWARGS = {
 
 
 DATA_TYPE = "insurance_operations"
-BRONZE_OUTPUT = Asset(f"bronze://{DATA_TYPE}")
 
 def check_country(country: str, **context) -> bool:
     selected = context["params"].get("country_codes", [])
@@ -94,7 +93,6 @@ with DAG(
         txn_task = make_spark_task(
             f"ingest_{DATA_TYPE}_{country}", DATA_TYPE, country,
             use_logical_date=True,
-            outlets=[BRONZE_OUTPUT],
         )
 
         gate >> check_file >> txn_task

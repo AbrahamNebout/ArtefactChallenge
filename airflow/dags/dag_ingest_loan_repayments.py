@@ -48,7 +48,6 @@ RETRY_KWARGS = {
 
 
 DATA_TYPE = "loan_repayments"
-BRONZE_OUTPUT = Asset(f"bronze://{DATA_TYPE}")
 
 
 
@@ -99,7 +98,6 @@ with DAG(
         txn_task = make_spark_task(
             f"ingest_{DATA_TYPE}_{country}", DATA_TYPE, country,
             use_logical_date=True,
-            outlets=[BRONZE_OUTPUT],
         )
 
         gate >> check_file >> txn_task
