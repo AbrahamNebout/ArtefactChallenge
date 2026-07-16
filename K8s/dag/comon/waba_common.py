@@ -132,11 +132,14 @@ def _ivy_volume_block() -> tuple[list[dict], list[dict]]:
     }]
     return volume_mounts, volumes
 
-
 def _build_spark_application(app_name: str, main_file: str, arguments: list[str],
                               executor_instances: int = 2) -> dict:
     """Construit le spec SparkApplication commun à toutes les fabriques."""
-    app_name = app_name.lower() 
+    # Nom unique par jour d'exécution : évite les collisions entre deux
+    # runs qui se chevauchent (ex. catchup sur plusieurs jours), tout en
+    # gardant un nom déterministe (pas de suffixe aléatoire) pour que le
+    # sensor puisse le retrouver directement sans passer par XCom.
+    app_name = f"{app_name}-{{{{ ds_nodash }}}}".lower()
     volume_mounts, volumes = _ivy_volume_block()
     env = get_common_env()
 
@@ -173,17 +176,16 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
         },
     }
 
-
 def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator, SparkKubernetesSensor]:
     """Crée la paire (soumission, sensor d'attente) déjà chaînée."""
-    app_name = spec["metadata"]["name"]
+    app_name = spec["metadata"]["name"]  # contient déjà "-{{ ds_nodash }}"
 
     submit = SparkKubernetesOperator(
         task_id=task_id,
         namespace=NAMESPACE,
         application_file=yaml.dump(spec),
         kubernetes_conn_id=KUBERNETES_CONN_ID,
-        random_name_suffix=False,  # <-- empêche le suffixe aléatoire : le nom réel = app_name exact
+        random_name_suffix=False,
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
