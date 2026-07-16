@@ -157,7 +157,7 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
             "arguments": arguments,
             "sparkVersion": SPARK_VERSION,
             "restartPolicy": {"type": "Never"},
-          #  "timeToLiveSeconds": TTL_SECONDS_AFTER_FINISHED,
+            "timeToLiveSeconds": TTL_SECONDS_AFTER_FINISHED,
             "volumes": volumes,
             "driver": {
                 "cores": 1,
