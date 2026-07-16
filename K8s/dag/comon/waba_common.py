@@ -38,6 +38,12 @@ from airflow.models import Variable
 import boto3
 import yaml
 
+from kubernetes.client import CustomObjectsApi
+from kubernetes.client.exceptions import ApiException
+from airflow.providers.cncf.kubernetes.hooks.kubernetes import KubernetesHook
+from airflow.providers.standard.operators.python import PythonOperator
+
+
 from airflow.providers.cncf.kubernetes.operators.spark_kubernetes import (
     SparkKubernetesOperator,
 )
@@ -90,6 +96,33 @@ def alert_on_failure(context):
     )
 
 
+def cleanup_spark_application(app_name: str, **_context) -> None:
+    """
+    Supprime la ressource SparkApplication une fois qu'Airflow a confirmé
+    le succès du job (appelé seulement après que le sensor _wait ait réussi,
+    voir trigger_rule par défaut = all_success dans _submit_and_wait).
+    Remplace le TTL natif du spark-operator, qui supprimait la ressource
+    trop tôt et cassait le sensor (voir historique du debug K8s).
+    """
+    hook = KubernetesHook(conn_id=KUBERNETES_CONN_ID)
+    custom_api = CustomObjectsApi(hook.get_conn())
+    try:
+        custom_api.delete_namespaced_custom_object(
+            group="sparkoperator.k8s.io",
+            version="v1beta2",
+            namespace=NAMESPACE,
+            plural="sparkapplications",
+            name=app_name,
+        )
+        logging.info("🧹 SparkApplication '%s' supprimée après confirmation du succès.", app_name)
+    except ApiException as e:
+        if e.status == 404:
+            logging.info("SparkApplication '%s' déjà absente, rien à faire.", app_name)
+        else:
+            raise
+
+
+
 def _ivy_volume_block() -> tuple[list[dict], list[dict]]:
     """Volume + volumeMount partagés driver/executor pour le cache Ivy."""
     volume_mounts = [{"name": "ivy-cache", "mountPath": "/root/.ivy2"}]
@@ -120,7 +153,7 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
             "arguments": arguments,
             "sparkVersion": SPARK_VERSION,
             "restartPolicy": {"type": "Never"},
-            "timeToLiveSeconds": TTL_SECONDS_AFTER_FINISHED,
+          #  "timeToLiveSeconds": TTL_SECONDS_AFTER_FINISHED,
             "volumes": volumes,
             "driver": {
                 "cores": 1,
@@ -141,27 +174,35 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
 
 
 def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator, SparkKubernetesSensor]:
-    """Crée la paire (soumission, sensor d'attente) déjà chaînée."""
-    app_name = spec["metadata"]["name"]  # nom déterministe, déjà connu avant soumission
+    """Crée la paire (soumission, sensor d'attente) déjà chaînée, suivie
+    d'un nettoyage explicite de la SparkApplication (remplace le TTL)."""
+    app_name = spec["metadata"]["name"]
 
     submit = SparkKubernetesOperator(
         task_id=task_id,
         namespace=NAMESPACE,
         application_file=yaml.dump(spec),
         kubernetes_conn_id=KUBERNETES_CONN_ID,
-        # do_xcom_push retiré : plus besoin, on connaît déjà le nom de l'app
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
     sensor = SparkKubernetesSensor(
         task_id=f"{task_id}_wait",
         namespace=NAMESPACE,
-        application_name=app_name,  # passé directement, plus de xcom_pull
+        application_name=app_name,
         kubernetes_conn_id=KUBERNETES_CONN_ID,
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
-    submit >> sensor
+    cleanup = PythonOperator(
+        task_id=f"{task_id}_cleanup",
+        python_callable=cleanup_spark_application,
+        op_kwargs={"app_name": app_name},
+        # trigger_rule par défaut (all_success) : ne nettoie QUE si le
+        # sensor a confirmé le succès -- en cas d'échec, la ressource
+        # reste disponible pour inspection manuelle (kubectl describe...).
+    )
+    submit >> sensor >> cleanup
     return submit, sensor
 
 
