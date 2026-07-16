@@ -142,18 +142,21 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
 
 def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator, SparkKubernetesSensor]:
     """Crée la paire (soumission, sensor d'attente) déjà chaînée."""
+    app_name = spec["metadata"]["name"]  # nom déterministe, déjà connu avant soumission
+
     submit = SparkKubernetesOperator(
         task_id=task_id,
         namespace=NAMESPACE,
         application_file=yaml.dump(spec),
         kubernetes_conn_id=KUBERNETES_CONN_ID,
+        # do_xcom_push retiré : plus besoin, on connaît déjà le nom de l'app
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
     sensor = SparkKubernetesSensor(
         task_id=f"{task_id}_wait",
         namespace=NAMESPACE,
-        application_name="{{ task_instance.xcom_pull(task_ids='%s')['metadata']['name'] }}" % task_id,
+        application_name=app_name,  # passé directement, plus de xcom_pull
         kubernetes_conn_id=KUBERNETES_CONN_ID,
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
