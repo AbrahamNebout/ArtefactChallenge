@@ -136,6 +136,7 @@ def _ivy_volume_block() -> tuple[list[dict], list[dict]]:
 def _build_spark_application(app_name: str, main_file: str, arguments: list[str],
                               executor_instances: int = 2) -> dict:
     """Construit le spec SparkApplication commun à toutes les fabriques."""
+    app_name = app_name.lower() 
     volume_mounts, volumes = _ivy_volume_block()
     env = get_common_env()
 
@@ -174,8 +175,7 @@ def _build_spark_application(app_name: str, main_file: str, arguments: list[str]
 
 
 def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator, SparkKubernetesSensor]:
-    """Crée la paire (soumission, sensor d'attente) déjà chaînée, suivie
-    d'un nettoyage explicite de la SparkApplication (remplace le TTL)."""
+    """Crée la paire (soumission, sensor d'attente) déjà chaînée."""
     app_name = spec["metadata"]["name"]
 
     submit = SparkKubernetesOperator(
@@ -183,6 +183,7 @@ def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator,
         namespace=NAMESPACE,
         application_file=yaml.dump(spec),
         kubernetes_conn_id=KUBERNETES_CONN_ID,
+        random_name_suffix=False,  # <-- empêche le suffixe aléatoire : le nom réel = app_name exact
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
@@ -194,15 +195,7 @@ def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator,
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
-    cleanup = PythonOperator(
-        task_id=f"{task_id}_cleanup",
-        python_callable=cleanup_spark_application,
-        op_kwargs={"app_name": app_name},
-        # trigger_rule par défaut (all_success) : ne nettoie QUE si le
-        # sensor a confirmé le succès -- en cas d'échec, la ressource
-        # reste disponible pour inspection manuelle (kubectl describe...).
-    )
-    submit >> sensor >> cleanup
+    submit >> sensor
     return submit, sensor
 
 
