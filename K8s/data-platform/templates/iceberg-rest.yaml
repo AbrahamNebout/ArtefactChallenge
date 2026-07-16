@@ -44,6 +44,9 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: rootPassword
+            - name: AWS_REGION
+              value: "us-east-1"
+              
             - name: CATALOG_CATALOG__IMPL
               value: org.apache.iceberg.jdbc.JdbcCatalog
             - name: CATALOG_URI

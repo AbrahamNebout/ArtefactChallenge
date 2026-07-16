@@ -147,7 +147,6 @@ def _submit_and_wait(task_id: str, spec: dict) -> tuple[SparkKubernetesOperator,
         namespace=NAMESPACE,
         application_file=yaml.dump(spec),
         kubernetes_conn_id=KUBERNETES_CONN_ID,
-        do_xcom_push=True,
         on_failure_callback=alert_on_failure,
         **DEFAULT_TASK_KWARGS,
     )
