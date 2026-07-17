@@ -120,7 +120,7 @@ services:
  # --- Job 1 Spark Structured Streaming : Raw -> Silver (un conteneur par
   #     type de donnée, chacun tourne en continu tant que le stack est up) ---
   stream-bank-transactions:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-bank-transactions
     networks:
       - waba-network
@@ -140,7 +140,7 @@ services:
         condition: service_healthy
  
   stream-insurance-operations:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-insurance-operations
     networks:
       - waba-network
@@ -160,7 +160,7 @@ services:
         condition: service_healthy
  
   stream-mobile-money:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-mobile-money
     networks:
       - waba-network
@@ -183,7 +183,7 @@ services:
 # --- Job 2 Spark Structured Streaming : Silver -> Gold (détection de
   #     fraude, AML, liquidité) -- un conteneur par règle, même image que Job 1 ---
   stream-fraud-multiple-txn:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-fraud-multiple-txn
     networks:
       - waba-network
@@ -204,7 +204,7 @@ services:
         condition: service_healthy
  
   stream-fraud-unusual-country:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-fraud-unusual-country
     networks:
       - waba-network
@@ -225,7 +225,7 @@ services:
         condition: service_healthy
  
   stream-fraud-claim-ratio:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-fraud-claim-ratio
     networks:
       - waba-network
@@ -246,7 +246,7 @@ services:
         condition: service_healthy
  
   stream-aml-threshold:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-aml-threshold
     networks:
       - waba-network
@@ -267,7 +267,7 @@ services:
         condition: service_healthy
  
   stream-liquidity-alerts:
-    image: abraneb97/stream_image:latest
+    image: abraneb97/stream_image:v1
     container_name: waba-stream-liquidity-alerts
     networks:
       - waba-network

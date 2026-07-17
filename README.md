@@ -127,6 +127,25 @@ Dans le dossier airflow, cree un ficher .env et inserer ***AIRFLOW_UID=50000***
 
 ### 2.3 Démarrer Airflow
 
+IMPORTANT 
+
+Trouve le GID du groupe docker sur ta machine hôte :
+
+```bash
+bashstat -c '%g' /var/run/docker.sock
+```
+
+Puis dans le ficher docker-compose.override.yaml ajouter le numero trouver :
+
+```bash
+yamlairflow-worker:
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  group_add:
+    - "999"   # remplace 999 par le GID trouvé ci-dessus
+```
+
+Puis 
 
 ```bash
 docker compose up -d
@@ -172,6 +191,7 @@ Tu peux supprimer les conteneurs Airflow (non utilisés dans cette partie), mais
 Dossier concerné : `streaming/`.
 
 ```bash
+cd ..
 cd streaming
 ```
 
@@ -188,11 +208,8 @@ cd streaming
 | `stream-aml-threshold` | Job 2 : détection des virements dépassant le seuil déclaratif BCEAO/CIMA, publie dans `gold-aml-events` |
 | `stream-liquidity-alerts` | Job 2 : surveillance du solde net glissant par pays, publie dans `gold-liquidity-alerts` |
 
-### 3.2 Acceder au dossier er cree le .env
+### 3.2 Creer un ficher .env a la racine du dossier streaming
 
-```bash
-cd spark_jobs
-```
 Creer un ficher .env avec le contenu 
 
 ```bash
@@ -291,8 +308,13 @@ kubectl create secret generic grafana-admin-credentials \
 
 ## 2. Configuration de l'accès Git (git-sync)
 
-Ouvrir le fichier `git-sync-secret.yaml` et remplacer :
+Ouvrir le fichier `git-sync-secret.yaml` et remplacer  :
 
+```bash
+GIT_SYNC_USERNAME
+GIT_SYNC_PASSWORD
+```
+Par les valeurs envoyer par email
 
 Puis appliquer ce secret :
 
