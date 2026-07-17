@@ -55,7 +55,6 @@ spark-operator:
     enable: true
   
 
-
 dataGenerator:
   enabled: true
 
