@@ -1,0 +1,72 @@
+{{- if .Values.iceberg.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-iceberg-postgres-secret
+type: Opaque
+stringData:
+  POSTGRES_USER: {{ .Values.iceberg.postgres.user }}
+  POSTGRES_PASSWORD: {{ .Values.iceberg.postgres.password }}
+  POSTGRES_DB: {{ .Values.iceberg.postgres.database }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-iceberg-postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.iceberg.postgres.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-iceberg-postgres
+  labels:
+    app: iceberg-postgres
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iceberg-postgres
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: iceberg-postgres
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-iceberg-postgres-secret
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-iceberg-postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-iceberg-postgres
+  labels:
+    app: iceberg-postgres
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    app: iceberg-postgres
+    release: {{ .Release.Name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+{{- end }}

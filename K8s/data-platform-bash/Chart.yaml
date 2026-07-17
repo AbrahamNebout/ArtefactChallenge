@@ -1,0 +1,22 @@
+apiVersion: v2
+name: mci-data-platform
+description: Plateforme data MCI (MinIO, Airflow, Kafka, NiFi, Trino)
+version: 1.0.0
+
+dependencies:
+  - name: minio
+    version: "5.4.0"
+    repository: ""
+
+  - name: airflow
+    version: "1.22.0"
+    repository: ""
+
+
+  - name: spark-operator
+    version: "2.5.1"
+    repository: ""
+
+  - name: trino
+    version: "1.42.2"
+    repository: ""

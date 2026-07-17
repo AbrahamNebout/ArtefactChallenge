@@ -1,0 +1,64 @@
+{{- if .Values.dataGenerator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-data-generator
+  labels:
+    app: data-generator
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-generator
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: data-generator
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: data-generator
+          image: "{{ .Values.dataGenerator.image.repository }}:{{ .Values.dataGenerator.image.tag }}"
+          imagePullPolicy: {{ .Values.dataGenerator.image.pullPolicy }}
+          ports:
+            - containerPort: 8501
+          env:
+            # Nom interne du Service MinIO généré par le sous-chart --
+            # {{ .Release.Name }}-minio, joignable depuis n'importe quel
+            # pod du même cluster, pas besoin de passer par le NodePort.
+            - name: MINIO_ENDPOINT
+              value: "{{ .Release.Name }}-minio:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: rootUser
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: rootPassword
+          resources:
+            {{- toYaml .Values.dataGenerator.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-data-generator
+  labels:
+    app: data-generator
+    release: {{ .Release.Name }}
+spec:
+  type: {{ .Values.dataGenerator.service.type }}
+  ports:
+    - port: 8501
+      targetPort: 8501
+      {{- if eq .Values.dataGenerator.service.type "NodePort" }}
+      nodePort: {{ .Values.dataGenerator.service.nodePort }}
+      {{- end }}
+  selector:
+    app: data-generator
+    release: {{ .Release.Name }}
+{{- end }}

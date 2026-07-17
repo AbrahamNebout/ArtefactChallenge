@@ -1,0 +1,83 @@
+{{- if .Values.iceberg.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-iceberg-rest
+  labels:
+    app: iceberg-rest
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iceberg-rest
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: iceberg-rest
+        release: {{ .Release.Name }}
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ .Release.Name }}-iceberg-postgres -p 5432 -U {{ .Values.iceberg.postgres.user }}; do
+                echo "En attente de Postgres..."
+                sleep 2
+              done
+              echo "Postgres est prêt."
+      containers:
+        - name: iceberg-rest
+          image: tabulario/iceberg-rest:latest
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: rootUser
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: rootPassword
+            - name: AWS_REGION
+              value: "us-east-1"
+              
+            - name: CATALOG_CATALOG__IMPL
+              value: org.apache.iceberg.jdbc.JdbcCatalog
+            - name: CATALOG_URI
+              value: "jdbc:postgresql://{{ .Release.Name }}-iceberg-postgres:5432/{{ .Values.iceberg.postgres.database }}"
+            - name: CATALOG_JDBC_USER
+              value: {{ .Values.iceberg.postgres.user }}
+            - name: CATALOG_JDBC_PASSWORD
+              value: {{ .Values.iceberg.postgres.password }}
+            - name: CATALOG_WAREHOUSE
+              value: "s3://{{ .Values.iceberg.warehouseBucket }}/"
+            - name: CATALOG_IO__IMPL
+              value: org.apache.iceberg.aws.s3.S3FileIO
+            - name: CATALOG_S3_ENDPOINT
+              value: "http://{{ .Release.Name }}-minio:9000"
+            - name: CATALOG_S3_PATH__STYLE__ACCESS
+              value: "true"
+          ports:
+            - containerPort: 8181
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-iceberg-rest
+  labels:
+    app: iceberg-rest
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    app: iceberg-rest
+    release: {{ .Release.Name }}
+  ports:
+    - port: 8181
+      targetPort: 8181
+{{- end }}

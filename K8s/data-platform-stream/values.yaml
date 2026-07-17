@@ -1,0 +1,155 @@
+minio:
+  persistence:
+    size: 5Gi
+  buckets:
+    - name: raw-landing
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+    - name: lakehouse
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+    - name: archive
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+
+
+dataGenerator:
+  enabled: true
+
+  image:
+    repository: abraneb97/app-generator-k8s
+    tag: "latest"         
+    pullPolicy: IfNotPresent
+
+  service:
+    type: NodePort
+    nodePort: 30911
+
+  resources: {}
+
+trino: {}
+
+iceberg:
+  enabled: true
+  warehouseBucket: lakehouse 
+  postgres:
+    user: iceberg
+    password: iceberg        
+    database: iceberg_catalog
+    persistence:
+      size: 2Gi
+
+
+streamingJobs:
+  enabled: true
+  image: abraneb97/stream_image_k8s:v1
+  rawToSilverJobs:
+    - bank_transactions
+    - insurance_operations
+    - mobile_money
+  silverToGoldJobs:
+    - fraud_multiple_txn
+    - fraud_unusual_country
+    - fraud_claim_ratio
+    - aml_threshold
+    - liquidity_alerts
+
+kafka:
+  provisioning:
+    enabled: true
+    waitForKafka: true
+    useHelmHooks: true
+    numPartitions: 2
+    replicationFactor: 1
+    topics:
+      - name: raw-bank-transactions
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: raw-insurance-operations
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: raw-mobile-money-payments
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: dlq-financial-events
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: gold-liquidity-alerts
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: raw-loan-repayments
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: gold-aml-events
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: silver-bank-transactions
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: silver-insurance-operations
+        partitions: 3
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: gold-fraud-alerts
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+      - name: silver-mobile-money
+        partitions: 1
+        replicationFactor: 1
+        config:
+          retention.ms: "604800000"
+          cleanup.policy: delete
+
+kafka-ui:
+  yamlApplicationConfig:
+    kafka:
+      clusters:
+        - name: yaml
+          bootstrapServers: data-platform-kafka:9092
+
+nifi: {}
