@@ -410,7 +410,11 @@ Trino	http://<ip-du-cluster>:30906
 
 ### 5.1 Importer les variables
 
-Se rendre dans **Admin → Variables**, puis importer le fichier `waba-variables.json` présent dans le dossier K8s.
+Se rendre dans **Admin → Variables** puis :
+
+- importer le fichier `waba-variables-batch.json` présent dans le dossier K8s si vous avez deploier seulement la partie batch.
+
+- importer le fichier `waba-variables.json` présent dans le dossier K8s si vous avez deploier toute l'infra.
 
 ### 5.2 Créer les connexions
 
