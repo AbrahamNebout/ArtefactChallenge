@@ -329,7 +329,7 @@ Trois modes de déploiement sont proposés. Pour des raisons de ressources, il e
 ### 3.1 Déploiement de la partie batch
 
 ```bash
-cd data-platform-bash
+cd data-platform-batch
 kubectl apply -f spark-serviceaccount-and-pvc.yaml
 helm dependency list
 helm lint .
