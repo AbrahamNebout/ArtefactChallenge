@@ -17,6 +17,14 @@ minio:
       purge: false
       versioning: false
       objectlocking: false
+    - name: airflow-logs
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+
+
+
 
 airflow:
   executor: CeleryExecutor
