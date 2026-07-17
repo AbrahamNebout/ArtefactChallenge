@@ -320,7 +320,6 @@ Puis appliquer ce secret :
 
 ```bash
 kubectl apply -f git-sync-secret.yaml
-kubectl apply -f spark-serviceaccount-and-pvc.yaml
 ```
 
 ## 3. Déploiement du chart Helm
@@ -331,6 +330,7 @@ Trois modes de déploiement sont proposés. Pour des raisons de ressources, il e
 
 ```bash
 cd data-platform-bash
+kubectl apply -f spark-serviceaccount-and-pvc.yaml
 helm dependency list
 helm lint .
 helm install data-platform-batch .
@@ -355,6 +355,7 @@ Si vous disposez de ressources suffisantes pour déployer l'ensemble de l'infras
 
 ```bash
 cd data-platform
+kubectl apply -f spark-serviceaccount-and-pvc.yaml
 helm dependency list
 helm lint .
 helm install data-platform .

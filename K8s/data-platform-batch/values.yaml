@@ -19,22 +19,50 @@ minio:
       objectlocking: false
 
 airflow:
+  executor: CeleryExecutor
+ 
   images:
     airflow:
       repository: abraneb97/mci-airflow
       tag: "latest"
-      pullPolicy: IfNotPresent 
+      pullPolicy: IfNotPresent
+ 
+  # ------------------------------------------------------------
+  # Workers Celery : remplace les pods éphémères du KubernetesExecutor
+  # par un pool fixe de 2 workers permanents qui traitent gate/check_file
+  # et submit (submit se contente d'appeler l'API K8s pour créer la CRD
+  # SparkApplication -- le pod driver Spark reste créé séparément par
+  # le spark-operator, indépendamment du nombre de workers Celery).
+  # ------------------------------------------------------------
+  workers:
+    replicas: 2
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+ 
+  # ------------------------------------------------------------
+  # Redis : requis comme broker Celery. Le chart officiel Airflow
+  # le déploie automatiquement si non désactivé explicitement.
+  # ------------------------------------------------------------
+  redis:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 1Gi
+ 
   config:
-    kubernetes_executor:
-      delete_worker_pods: "True"
     core:
       dagbag_import_timeout: "120"
-
+ 
     logging:
       remote_logging: "True"
       remote_base_log_folder: "s3://airflow-logs/"
       remote_log_conn_id: "minio_s3_conn"
-
+ 
   dags:
     gitSync:
       enabled: true
