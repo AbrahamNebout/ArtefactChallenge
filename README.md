@@ -325,6 +325,34 @@ kubectl apply -f spark-serviceaccount-and-pvc.yaml
 
 ## 3. Déploiement du chart Helm
 
+Trois modes de déploiement sont proposés. Pour des raisons de ressources, il est recommandé de commencer par déployer la partie **batch** (traitements bash), avant d'ajouter éventuellement la partie **streaming**, ou de déployer l'infrastructure complète si vos ressources le permettent.
+
+### 3.1 Déploiement de la partie batch
+
+```bash
+cd data-platform-bash
+helm dependency list
+helm lint .
+helm install data-platform-bash .
+```
+
+Patientez jusqu'au déploiement complet des composants.
+
+### 3.2 Déploiement de la partie streaming
+
+Une fois vos tests terminés, vous pouvez supprimer le déploiement précédent et déployer la partie streaming :
+
+```bash
+cd data-platform-stream
+helm dependency list
+helm lint .
+helm install data-platform-stream .
+```
+
+### 3.3 Déploiement de l'infrastructure complète
+
+Si vous disposez de ressources suffisantes pour déployer l'ensemble de l'infrastructure, utilisez les commandes suivantes :
+
 ```bash
 cd data-platform
 helm dependency list
@@ -332,9 +360,7 @@ helm lint .
 helm install data-platform .
 ```
 
-Patienter jusqu'au déploiement complet des composants.
-
-### ⚠️ Points d'attention en cas de ressources insuffisantes
+### ⚠️ Points d'attention en cas de ressources insuffisantes lors du deploiement complet
 
 1. **Le déploiement peut être long** selon les ressources disponibles sur le cluster.
 2. **Migration Airflow** : si les migrations de base de données ne se terminent pas correctement, les pods des composants Airflow ne démarreront pas. Vérifier avec `kubectl get pods` et relancer si besoin.
