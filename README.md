@@ -333,7 +333,7 @@ Trois modes de déploiement sont proposés. Pour des raisons de ressources, il e
 cd data-platform-bash
 helm dependency list
 helm lint .
-helm install data-platform-bash .
+helm install data-platform-batch .
 ```
 
 Patientez jusqu'au déploiement complet des composants.
@@ -407,6 +407,8 @@ NiFi	https://<ip-du-cluster>:30905
 Trino	http://<ip-du-cluster>:30906
 ```
 ## 5. Configuration initiale d'Airflow
+Acceder a l'interface de airflow, et connecter vous avec 
+Identifiants : `admin` / `admin`
 
 ### 5.1 Importer les variables
 
@@ -433,6 +435,13 @@ Se rendre dans **Admin → Connections** et créer deux connexions :
 - **aws_secret_access_key** : `Amazon Web Services`
 - **Champs supplémentaires JSON** :
 ```json
+Pour le deploiement de la partie batch seulement
+{
+  "endpoint_url": "http://data-platform-batch-minio:9000"
+}
+-----------
+
+Pour le deploiement de toute l'infra
 {
   "endpoint_url": "http://data-platform-minio:9000"
 }
