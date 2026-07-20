@@ -103,6 +103,8 @@ streamingJobs:
     - liquidity_alerts
 
 kafka:
+  controller:
+    replicaCount: 1
   provisioning:
     enabled: true
     waitForKafka: true
