@@ -286,6 +286,12 @@ Retourne sur **Kafka UI** (http://localhost:8095) : les messages doivent commenc
 
 ## Level 4 — Déploiement sur Kubernetes
 
+En raison de ressources insuffisante, nous ferons le deploiement en trois etapes : 
+
+- Deploiement de la partie bash du projet avec minio, airflow, spark-operator, trino, iceberg et l'application de generation de donnees.
+- Deploiement de la partie streaming du projet avec minio, nifi, kafka, trino, iceberg,  l'application de traittement stream et l'application de generation de donnees.
+- Deploiement de toute l'infra.
+
 ## 1. Prérequis — création des secrets
 
 Se placer dans le dossier K8s :
@@ -324,9 +330,7 @@ kubectl apply -f git-sync-secret.yaml
 
 ## 3. Déploiement du chart Helm
 
-Trois modes de déploiement sont proposés. Pour des raisons de ressources, il est recommandé de commencer par déployer la partie **batch** (traitements bash), avant d'ajouter éventuellement la partie **streaming**, ou de déployer l'infrastructure complète si vos ressources le permettent.
-
-### 3.1 Déploiement de la partie batch
+### 3.1.1 Déploiement de la partie batch
 
 ```bash
 cd data-platform-batch
@@ -337,10 +341,118 @@ helm install data-platform-batch .
 ```
 
 Patientez jusqu'au déploiement complet des composants.
+un déploiement correct crée automatiquement les buckets  suivants dans minio  :
+`raw-landing` , `archive` , `lakehousse` , `airflow-logs`
+En cas de manque de ressources, le pod de provisioning minio peut échouer à créer ces buckets — vérifier et créer manuellement si nécessaire.
+
+### 3.1.2 Generation des données et acces a Minio 
+
+Acceder a l'application de generation des donnees via 
+http://<ip-du-cluster>:30911
+
+Le processus de generation de donnees est le meme que celui du level1
+
+Puis acceder a minio via	http://<ip-du-cluster>:32001, et connecter vous avec 
+Identifiants : `minioadmin` / `UnVraiMotDePasseSolide!`
+
+### 3.1.3 Configuration initiale d'Airflow
+Acceder a l'interface de  Airflow via	http://<ip-du-cluster>:31151, et connecter vous avec 
+Identifiants : `admin` / `admin`
+
+Se rendre dans **Admin → Variables** puis :
+- importer le fichier `waba-variables-batch.json` présent dans le dossier K8s\data-platform-batch.
+
+### 3.1.4 Créer les connexions
+
+Se rendre dans **Admin → Connections** et créer deux connexions :
+
+**Connexion Kubernetes**
+- **Connection Id** : `kubernetes_default`
+- **Connection Type** : `Kubernetes Cluster Connection`
+- Cocher **In cluster configuration**
+- **Namespace** : `default`
+
+**Connexion MinIO (pour les logs distants)**
+- **Connection Id** : `minio_s3_conn`
+- **Connection Type** : `Amazon Web Services`
+- **aws_access_key_id** : `minioadmin`
+- **aws_secret_access_key** : `UnVraiMotDePasseSolide!`
+- **Champs supplémentaires JSON** :
+```json
+{
+  "endpoint_url": "http://data-platform-batch-minio:9000"
+}
+```
+### 3.1.5 Architecture des DAGs 
+
+### DAGs d'ingestion Bronze
+
+`dag_ingest_bank_transactions`, `dag_ingest_insurance_operations`, `dag_ingest_loan_repayments`, `dag_ingest_mobile_money`
+
+Ingestion quotidienne à 01h00 UTC, traitant les données de J-1 (`logical_date`). Pour chaque pays, pipeline en 3 étapes :
+
+- **`gate_{country}`** : `ShortCircuitOperator` qui filtre selon le paramètre `country_codes` (permet un rattrapage sélectif via déclenchement manuel).
+- **`check_file_{country}`** : vérifie la présence du fichier CSV du jour avant de lancer le traitement.
+- **`ingest_{DATA_TYPE}_{country}`** : soumet un `SparkApplication` (CRD Spark Operator) qui exécute réellement l'ingestion vers Bronze.
+
+### `dag_bronze_to_silver`
+
+Attend, via `ExternalTaskSensor`, que les 4 DAGs d'ingestion aient terminé avec succès leur run du jour, puis lance en parallèle les transformations Silver (nettoyage, déduplication, jointures référentielles, conversion en EUR) pour chaque type de donnée.
+
+### `dag_silver_to_gold`
+
+Attend la fin de `dag_bronze_to_silver`, puis calcule 7 KPIs métier/réglementaires (volume de transactions, ratio NPL, ARPU, loss ratio, etc.) en parallèle.
+
+### `dag_regulatory_report`
+
+DAG indépendant (planifié 30 min avant les autres), génère le rapport réglementaire quotidien BCEAO/CIMA.
+
+---
+
+## Pourquoi CeleryExecutor plutôt que KubernetesExecutor
+
+J'ai choisi le **CeleryExecutor** pour éviter de créer un pod Kubernetes pour chaque tâche Airflow — ce que ferait le KubernetesExecutor, y compris pour des tâches très légères comme `gate` ou `check_file`.
+
+Avec CeleryExecutor :
+
+- Les tâches `gate_{country}` et `check_file_{country}` s'exécutent **directement sur le worker Celery** (un simple processus Python), sans création de pod dédié.
+- La tâche `ingest_{DATA_TYPE}_{country}` s'exécute aussi *depuis* le worker Celery, mais son rôle est différent : elle **soumet un objet `SparkApplication`** au cluster Kubernetes (via l'API du Spark Operator). C'est le **Spark Operator**, et non Airflow, qui se charge alors de créer le **pod driver Spark** (et les pods executors si besoin) pour exécuter réellement le job.
+- Une fois le job Spark terminé, le pod driver est **automatiquement supprimé** par le Spark Operator après le délai `TTL_SECONDS_AFTER_FINISHED`.
+
+**Résultat** : seuls les jobs Spark, qui ont réellement besoin de ressources de calcul isolées, génèrent des pods K8s. Les tâches d'orchestration légères (gate, check_file, sensors) restent sur les workers Celery, ce qui réduit fortement le nombre de pods créés/détruits et la charge sur le cluster.
+
+### 3.1.6 Déclenchement des DAGs
+
+Retourner dans Airflow et déclencher les DAGs.
+
+> ⚠️ Pour des raisons de ressources limitées, déclencher les DAGs **un par un, au fur et à mesure**, plutôt que tous en même temps, commencer par les job d'ingestion de donnees .
 
 ### 3.2 Déploiement de la partie streaming
 
 Une fois vos tests terminés, vous pouvez supprimer le déploiement précédent et déployer la partie streaming :
+
+Pour cette etape, les jobs de traittement streaming necessite le pvc spark-ivy-cache-pvc cree par spark pour demarer, 
+si vous avez demamrer la partie stream dirrectement, verifier et cree si neccessaire le pvc 
+
+```bash
+kubectl get pvc 
+
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spark-ivy-cache-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 2Gi
+EOF
+```
+
 
 ```bash
 cd data-platform-stream
@@ -348,6 +460,24 @@ helm dependency list
 helm lint .
 helm install data-platform-stream .
 ```
+Vous aurez deploier donc 
+
+```bash
+Data Generator (Streamlit)	http://<ip-du-cluster>:30911
+Kafka	<ip-du-cluster>:30902
+Kafka UI	http://<ip-du-cluster>:30903
+MinIO 	http://<ip-du-cluster>:32001
+NiFi	https://<ip-du-cluster>:30905
+Trino	http://<ip-du-cluster>:30906
+Iceberg
+```
+un déploiement correct crée automatiquement les topics suivants :
+
+`raw-bank-transactions` , `raw-insurance-operations` , `raw-mobile-money-payments` , `raw-loan-repayments` , `silver-bank-transactions` , `silver-insurance-operations` , `silver-mobile-money` , `dlq-financial-events` , `gold-liquidity-alerts` , `gold-aml-events` , `gold-fraud-alerts` 
+
+En cas de manque de ressources, le pod de provisioning Kafka peut échouer à créer ces topics — vérifier et créer manuellement si nécessaire.
+
+### 3.2.1
 
 ### 3.3 Déploiement de l'infrastructure complète
 
@@ -360,6 +490,7 @@ helm dependency list
 helm lint .
 helm install data-platform .
 ```
+
 
 ### ⚠️ Points d'attention en cas de ressources insuffisantes lors du deploiement complet
 
