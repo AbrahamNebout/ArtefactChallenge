@@ -453,6 +453,12 @@ spec:
 EOF
 ```
 
+Verifier egalement le secret , et recree le si neccessaire
+```bash
+kubectl create secret generic minio-credentials \
+  --from-literal=rootUser=minioadmin \
+  --from-literal=rootPassword='UnVraiMotDePasseSolide!'
+```
 
 ```bash
 cd data-platform-stream
