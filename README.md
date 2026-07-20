@@ -4,14 +4,14 @@
 
 Ce projet est réalisé dans le cadre d'un challenge de recrutement Data Engineer (Artefact). L'objectif est de construire une plateforme Data Lakehouse complète pour un groupe fictif de banque/assurance/mobile money opérant dans 8 pays d'Afrique de l'Ouest (Côte d'Ivoire, Sénégal, Mali, Burkina Faso, Guinée, Togo, Bénin, Ghana), selon une **architecture médaillon** (Bronze → Silver → Gold) et une **architecture Lambda** (batch + streaming).
 
-Le projet est structuré en 3 niveaux progressifs, **indépendants les uns des autres** (chaque niveau peut être exécuté séparément) :
+Le projet est structuré en 4 niveaux progressifs, **indépendants les uns des autres** (chaque niveau peut être exécuté séparément) :
 
 | Niveau | Objectif | Stack |
 |---|---|---|
 | **Level 1** | Génération de données + ingestion batch vers un lakehouse Iceberg | Streamlit, MinIO, Spark, Iceberg, Trino |
 | **Level 2** | Orchestration du pipeline batch avec architecture médaillon complète | Apache Airflow |
 | **Level 3** | Extension temps réel (ingestion streaming, détection de fraude/AML) | Apache NiFi, Apache Kafka, Spark Structured Streaming |
-| **Level 4** | Deploiement et monitoring sur k8s | k8s,Streamlit, MinIO, Spark, Iceberg, Trino, Apache NiFi, Apache Kafka, Structured Streaming |
+| **Level 4** | Déploiement et monitoring sur Kubernetes | K8s, Streamlit, MinIO, Spark, Iceberg, Trino, Apache NiFi, Apache Kafka, Spark Structured Streaming |
 
 Ce README donne toutes les étapes pour déployer et exécuter le projet de bout en bout, niveau par niveau.
 
@@ -41,7 +41,7 @@ Dossiers concernés : `data-generator/`, `infra/`, `spark-jobs/`.
 docker compose up -d --build
 ```
 
-Ça démarre l'application de génération de données (Streamlit), MinIO, le catalogue REST Iceberg, Trino, et le conteneur Spark (`waba-spark-runner`).
+Cette commande démarre l'application de génération de données (Streamlit), MinIO, le catalogue REST Iceberg, Trino, et le conteneur Spark (`waba-spark-runner`).
 
 ### 1.2 Générer les données
 
@@ -58,19 +58,19 @@ Accède à l'application : **http://localhost:8501**
 3. Clique sur **Générer et envoyer vers MinIO** (un aperçu s'affiche).
 4. Répète pour chacun des 4 types de données.
 
-### 1.3 Accèder à minio
+### 1.3 Accéder à MinIO
+
 Vérifie ensuite dans MinIO que les fichiers sont bien arrivés : **http://localhost:9001**
-Connecter vous avec : 
 
-- user : minioadmin
-- pass: minioadmin123
+Connecte-toi avec :
+- user : `minioadmin`
+- pass : `minioadmin123`
 
-
-### 1.3 Ingérer les données dans Iceberg via Spark
+### 1.4 Ingérer les données dans Iceberg via Spark
 
 Dans un terminal :
 
-**Référentiels** (dans cet ordre, `customers` avant `accounts` qui en dépend) :
+**Référentiels** (dans cet ordre — `customers` avant `accounts`, qui en dépend) :
 ```bash
 docker exec waba-spark-runner spark-submit /app/ingest_raw.py --data_type customers
 docker exec waba-spark-runner spark-submit /app/ingest_raw.py --data_type branches
@@ -96,7 +96,8 @@ for country in CI SN ML BF GN TG BJ GH; do
   docker exec waba-spark-runner spark-submit /app/ingest_raw.py --data_type bank_transactions --country $country
 done
 ```
-Répète (en changeant `--data_type`) pour  `insurance_operations`,  `mobile_money` et `loan_repayments`,.
+
+Répète (en changeant `--data_type`) pour `insurance_operations`, `mobile_money` et `loan_repayments`.
 
 Vérification finale :
 ```bash
@@ -113,39 +114,40 @@ Dossiers concernés : `data-generator/`, `infra/`, `airflow/`.
 
 ### 2.1 Régénérer des données fraîches
 
-Les transactions du Level 1 ont été **archivées** lors de leur ingestion (déplacées de `raw-landing` vers `archive`) — il faut donc régénérer de nouveaux données. Les données de référentiels ne sont pas obligatoire, vous pouvez utiliser celle deja generés ou en generé de nouvelles, Mais vous devez obligatoirement generé de nouvelles données transactionnelles depuis l'appli Streamlit (mêmes étapes que 1.2), sans les ré-ingérer manuellement cette fois : c'est Airflow qui va s'en charger.
+Les transactions du Level 1 ont été **archivées** lors de leur ingestion (déplacées de `raw-landing` vers `archive`) — il faut donc régénérer de nouvelles données. Les référentiels ne sont pas obligatoires (tu peux réutiliser ceux déjà générés ou en créer de nouveaux), mais tu dois obligatoirement régénérer de nouvelles données transactionnelles depuis l'application Streamlit (mêmes étapes qu'en 1.2), sans les réingérer manuellement cette fois : c'est Airflow qui va s'en charger.
 
-Conserver la meme date que celle proposer par l'interface, les scripts airflow sont configurés sur cette perriode.
+Conserve la même date que celle proposée par l'interface — les DAGs Airflow sont configurés sur cette période.
 
-### 2.2 Acceder au dossier et cree le .env
+### 2.2 Créer le fichier .env
 
 ```bash
 cd airflow
 ```
-Dans le dossier airflow, cree un ficher .env et inserer ***AIRFLOW_UID=50000***
 
+Dans le dossier `airflow`, crée un fichier `.env` et insère :
+```
+AIRFLOW_UID=50000
+```
 
 ### 2.3 Démarrer Airflow
 
-IMPORTANT 
-
-Trouve le GID du groupe docker sur ta machine hôte :
+**Important** — trouve le GID du groupe `docker` sur ta machine hôte :
 
 ```bash
-bashstat -c '%g' /var/run/docker.sock
+stat -c '%g' /var/run/docker.sock
 ```
 
-Puis dans le ficher docker-compose.override.yaml ajouter le numero trouver :
+Puis, dans le fichier `docker-compose.override.yaml`, ajoute le numéro trouvé :
 
-```bash
-yamlairflow-worker:
+```yaml
+airflow-worker:
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
   group_add:
     - "999"   # remplace 999 par le GID trouvé ci-dessus
 ```
 
-Puis 
+Puis :
 
 ```bash
 docker compose up -d
@@ -155,7 +157,7 @@ Patiente environ 5 minutes le temps qu'Airflow initialise sa base et ses service
 
 Accède à l'interface : **http://localhost:8090** (identifiants : `airflow` / `airflow`)
 
-### 2.4 Charger les Variables Airflow
+### 2.4 Charger les variables Airflow
 
 Dans le menu **Admin → Variables**, importe le fichier `waba_variables.json` (présent dans le dossier `airflow/`). Ces variables contiennent les credentials MinIO et l'URL du catalogue Iceberg, utilisées par toutes les tâches Spark.
 
@@ -177,8 +179,7 @@ Dans le menu **Admin → Variables**, importe le fichier `waba_variables.json` (
 - **Au tout premier lancement**, les jars Maven (Iceberg, connecteurs S3) sont téléchargés et mis en cache — pendant cette phase, certaines tâches peuvent échouer une première fois. Patiente quelques secondes : elles redémarrent automatiquement et s'exécutent normalement ensuite.
 - Pour éviter les erreurs de démarrage en cascade, lance les DAGs **de façon successive** plutôt que tous en même temps. Si une tâche `gate` passe au rouge, relance-la simplement.
 - Une fois les jobs de données transactionnelles exécutés avec succès, les fichiers traités sont **archivés** dans MinIO (déplacés de `raw-landing` vers `archive`) et les tables Iceberg correspondantes sont créées/mises à jour automatiquement dans le lakehouse.
-
-- Vous Pouvez acceder a trino et voir les tables iceberg crées
+- Tu peux accéder à Trino pour voir les tables Iceberg créées.
 
 **✅ Level 2 terminé.**
 
@@ -208,11 +209,9 @@ cd streaming
 | `stream-aml-threshold` | Job 2 : détection des virements dépassant le seuil déclaratif BCEAO/CIMA, publie dans `gold-aml-events` |
 | `stream-liquidity-alerts` | Job 2 : surveillance du solde net glissant par pays, publie dans `gold-liquidity-alerts` |
 
-### 3.2 Creer un ficher .env a la racine du dossier streaming
+### 3.2 Créer le fichier .env à la racine du dossier streaming
 
-Creer un ficher .env avec le contenu 
-
-```bash
+```
 KAFKA_CLUSTER_ID=0yJKRjynSOCyxUyk9sNtZw
 NIFI_ADMIN_USERNAME=admin
 NIFI_ADMIN_PASSWORD=wabaGroup2026!
@@ -221,7 +220,6 @@ MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin123
 ICEBERG_CATALOG_URI=http://iceberg-rest:8181
 ```
-
 
 ### 3.3 Démarrer le stack
 
@@ -234,7 +232,7 @@ docker compose up -d
 ### 3.4 Accéder aux interfaces
 
 **NiFi** : https://localhost:8443/nifi
-Le certificat est auto-signé : si le navigateur affiche "Votre connexion n'est pas privée", clique sur **Paramètres avancés** puis **Continuer vers le site**.
+Le certificat est auto-signé : si le navigateur affiche « Votre connexion n'est pas privée », clique sur **Paramètres avancés** puis **Continuer vers le site**.
 Identifiants : `admin` / `wabaGroup2026!`
 
 **Kafka UI** : http://localhost:8095
@@ -244,7 +242,7 @@ Les topics doivent déjà apparaître (créés automatiquement au démarrage).
 
 Retourne sur l'application Streamlit (Level 1) :
 1. Rafraîchis la page.
-2. Régénère de nouveaux référentiels et envoye les vers minio
+2. Régénère de nouveaux référentiels et envoie-les vers MinIO.
 3. Dans la section données transactionnelles, choisis le mode **Continue**.
 4. Ajuste l'intervalle de génération, le nombre de lignes par cycle, et les pays souhaités.
 5. Coche **Démarrer la génération continue**.
@@ -265,7 +263,7 @@ Double-clique sur le processeur **ListS3** → onglet Properties → renseigne :
 - Secret Key : `minioadmin123`
 → **Apply**
 
-Répète exactement la même chose sur le processeur **FetchS3Object** le deuxieme element du job.
+Répète exactement la même chose sur le processeur **FetchS3Object** (le deuxième élément du job).
 
 **Étape 2 — Activer les Controller Services :**
 1. Clic droit sur une zone vide du canvas → **Configure** → onglet **Controller Services**.
@@ -286,15 +284,15 @@ Retourne sur **Kafka UI** (http://localhost:8095) : les messages doivent commenc
 
 ## Level 4 — Déploiement sur Kubernetes
 
-En raison de ressources insuffisante, nous ferons le deploiement en trois etapes : 
+En raison de ressources insuffisantes, le déploiement se fait selon trois scénarios possibles, à choisir en fonction des ressources disponibles :
 
-- Deploiement de la partie bash du projet avec minio, airflow, spark-operator, trino, iceberg et l'application de generation de donnees.
-- Deploiement de la partie streaming du projet avec minio, nifi, kafka, trino, iceberg,  l'application de traittement stream et l'application de generation de donnees.
-- Deploiement de toute l'infra.
+- **Option A** : partie batch uniquement (MinIO, Airflow, Spark Operator, Trino, Iceberg, application de génération de données).
+- **Option B** : partie streaming uniquement (MinIO, NiFi, Kafka, Trino, Iceberg, jobs de traitement streaming, application de génération de données).
+- **Option C** : infrastructure complète.
 
-## 1. Prérequis — création des secrets
+### 4.1 Prérequis — création des secrets
 
-Se placer dans le dossier K8s :
+Se placer dans le dossier `K8s` :
 
 ```bash
 cd K8s
@@ -312,15 +310,14 @@ kubectl create secret generic grafana-admin-credentials \
   --from-literal=admin-password='UnVraiMotDePasseSolide!'
 ```
 
-## 2. Configuration de l'accès Git (git-sync)
+### 4.2 Configuration de l'accès Git (git-sync)
 
-Ouvrir le fichier `git-sync-secret.yaml` et remplacer  :
-
-```bash
+Ouvrir le fichier `git-sync-secret.yaml` et remplacer :
+```
 GIT_SYNC_USERNAME
 GIT_SYNC_PASSWORD
 ```
-Par les valeurs envoyer par email
+par les valeurs envoyées par email.
 
 Puis appliquer ce secret :
 
@@ -328,9 +325,11 @@ Puis appliquer ce secret :
 kubectl apply -f git-sync-secret.yaml
 ```
 
-## 3. Déploiement du chart Helm
+---
 
-### 3.1.1 Déploiement de la partie batch
+### 4.3 Option A — Déploiement de la partie batch
+
+#### 4.3.1 Déploiement du chart Helm
 
 ```bash
 cd data-platform-batch
@@ -340,31 +339,32 @@ helm lint .
 helm install data-platform-batch .
 ```
 
-Patientez jusqu'au déploiement complet des composants.
-un déploiement correct crée automatiquement les buckets  suivants dans minio  :
-`raw-landing` , `archive` , `lakehousse` , `airflow-logs`
-En cas de manque de ressources, le pod de provisioning minio peut échouer à créer ces buckets — vérifier et créer manuellement si nécessaire.
+Patiente jusqu'au déploiement complet des composants. Un déploiement correct crée automatiquement les buckets suivants dans MinIO :
+`raw-landing`, `archive`, `lakehouse`, `airflow-logs`.
 
-### 3.1.2 Generation des données et acces a Minio 
+⚠️ En cas de manque de ressources, le pod de provisioning MinIO peut échouer à créer ces buckets — vérifie et crée-les manuellement si nécessaire.
 
-Acceder a l'application de generation des donnees via 
-http://<ip-du-cluster>:30911
+#### 4.3.2 Génération des données et accès à MinIO
 
-Le processus de generation de donnees est le meme que celui du level1
+Accède à l'application de génération de données via :
+`http://<ip-du-cluster>:30911`
 
-Puis acceder a minio via	http://<ip-du-cluster>:32001, et connecter vous avec 
+Le processus de génération des données est le même que celui du Level 1.
+
+Puis accède à MinIO via `http://<ip-du-cluster>:32001`, et connecte-toi avec :
 Identifiants : `minioadmin` / `UnVraiMotDePasseSolide!`
 
-### 3.1.3 Configuration initiale d'Airflow
-Acceder a l'interface de  Airflow via	http://<ip-du-cluster>:31151, et connecter vous avec 
+#### 4.3.3 Configuration initiale d'Airflow
+
+Accède à l'interface Airflow via `http://<ip-du-cluster>:31151`, et connecte-toi avec :
 Identifiants : `admin` / `admin`
 
-Se rendre dans **Admin → Variables** puis :
-- importer le fichier `waba-variables-batch.json` présent dans le dossier K8s\data-platform-batch.
+Rends-toi dans **Admin → Variables** puis :
+- importe le fichier `waba-variables-batch.json` présent dans le dossier `K8s/data-platform-batch`.
 
-### 3.1.4 Créer les connexions
+#### 4.3.4 Créer les connexions
 
-Se rendre dans **Admin → Connections** et créer deux connexions :
+Rends-toi dans **Admin → Connections** et crée deux connexions :
 
 **Connexion Kubernetes**
 - **Connection Id** : `kubernetes_default`
@@ -383,59 +383,49 @@ Se rendre dans **Admin → Connections** et créer deux connexions :
   "endpoint_url": "http://data-platform-batch-minio:9000"
 }
 ```
-### 3.1.5 Architecture des DAGs 
 
-### DAGs d'ingestion Bronze
+#### 4.3.5 Architecture des DAGs
 
-`dag_ingest_bank_transactions`, `dag_ingest_insurance_operations`, `dag_ingest_loan_repayments`, `dag_ingest_mobile_money`
+**DAGs d'ingestion Bronze** : `dag_ingest_bank_transactions`, `dag_ingest_insurance_operations`, `dag_ingest_loan_repayments`, `dag_ingest_mobile_money`
 
 Ingestion quotidienne à 01h00 UTC, traitant les données de J-1 (`logical_date`). Pour chaque pays, pipeline en 3 étapes :
-
 - **`gate_{country}`** : `ShortCircuitOperator` qui filtre selon le paramètre `country_codes` (permet un rattrapage sélectif via déclenchement manuel).
 - **`check_file_{country}`** : vérifie la présence du fichier CSV du jour avant de lancer le traitement.
 - **`ingest_{DATA_TYPE}_{country}`** : soumet un `SparkApplication` (CRD Spark Operator) qui exécute réellement l'ingestion vers Bronze.
 
-### `dag_bronze_to_silver`
+**`dag_bronze_to_silver`** : attend, via `ExternalTaskSensor`, que les 4 DAGs d'ingestion aient terminé avec succès leur run du jour, puis lance en parallèle les transformations Silver (nettoyage, déduplication, jointures référentielles, conversion en EUR) pour chaque type de donnée.
 
-Attend, via `ExternalTaskSensor`, que les 4 DAGs d'ingestion aient terminé avec succès leur run du jour, puis lance en parallèle les transformations Silver (nettoyage, déduplication, jointures référentielles, conversion en EUR) pour chaque type de donnée.
+**`dag_silver_to_gold`** : attend la fin de `dag_bronze_to_silver`, puis calcule 7 KPIs métier/réglementaires (volume de transactions, ratio NPL, ARPU, loss ratio, etc.) en parallèle.
 
-### `dag_silver_to_gold`
+**`dag_regulatory_report`** : DAG indépendant (planifié 30 minutes avant les autres), génère le rapport réglementaire quotidien BCEAO/CIMA.
 
-Attend la fin de `dag_bronze_to_silver`, puis calcule 7 KPIs métier/réglementaires (volume de transactions, ratio NPL, ARPU, loss ratio, etc.) en parallèle.
-
-### `dag_regulatory_report`
-
-DAG indépendant (planifié 30 min avant les autres), génère le rapport réglementaire quotidien BCEAO/CIMA.
-
----
-
-## Pourquoi CeleryExecutor plutôt que KubernetesExecutor
+**Pourquoi CeleryExecutor plutôt que KubernetesExecutor**
 
 J'ai choisi le **CeleryExecutor** pour éviter de créer un pod Kubernetes pour chaque tâche Airflow — ce que ferait le KubernetesExecutor, y compris pour des tâches très légères comme `gate` ou `check_file`.
 
 Avec CeleryExecutor :
-
 - Les tâches `gate_{country}` et `check_file_{country}` s'exécutent **directement sur le worker Celery** (un simple processus Python), sans création de pod dédié.
 - La tâche `ingest_{DATA_TYPE}_{country}` s'exécute aussi *depuis* le worker Celery, mais son rôle est différent : elle **soumet un objet `SparkApplication`** au cluster Kubernetes (via l'API du Spark Operator). C'est le **Spark Operator**, et non Airflow, qui se charge alors de créer le **pod driver Spark** (et les pods executors si besoin) pour exécuter réellement le job.
 - Une fois le job Spark terminé, le pod driver est **automatiquement supprimé** par le Spark Operator après le délai `TTL_SECONDS_AFTER_FINISHED`.
 
 **Résultat** : seuls les jobs Spark, qui ont réellement besoin de ressources de calcul isolées, génèrent des pods K8s. Les tâches d'orchestration légères (gate, check_file, sensors) restent sur les workers Celery, ce qui réduit fortement le nombre de pods créés/détruits et la charge sur le cluster.
 
-### 3.1.6 Déclenchement des DAGs
+#### 4.3.6 Déclenchement des DAGs
 
-Retourner dans Airflow et déclencher les DAGs.
+Retourne dans Airflow et déclenche les DAGs.
 
-> ⚠️ Pour des raisons de ressources limitées, déclencher les DAGs **un par un, au fur et à mesure**, plutôt que tous en même temps, commencer par les job d'ingestion de donnees .
+> ⚠️ Pour des raisons de ressources limitées, déclenche les DAGs **un par un, au fur et à mesure**, plutôt que tous en même temps — commence par les jobs d'ingestion de données.
 
-### 3.2 Déploiement de la partie streaming
+---
 
-Une fois vos tests terminés, vous pouvez supprimer le déploiement précédent et déployer la partie streaming :
+### 4.4 Option B — Déploiement de la partie streaming
 
-Pour cette etape, les jobs de traittement streaming necessite le pvc spark-ivy-cache-pvc cree par spark pour demarer, 
-si vous avez demamrer la partie stream dirrectement, verifier et cree si neccessaire le pvc 
+Une fois tes tests terminés, tu peux supprimer le déploiement précédent et déployer la partie streaming.
+
+Les jobs de traitement streaming nécessitent le PVC `spark-ivy-cache-pvc`, créé normalement par Spark au démarrage. Si tu as démarré la partie streaming directement (sans passer par l'option batch), vérifie et crée-le si nécessaire :
 
 ```bash
-kubectl get pvc 
+kubectl get pvc
 
 kubectl apply -f - <<'EOF'
 apiVersion: v1
@@ -453,12 +443,14 @@ spec:
 EOF
 ```
 
-Verifier egalement le secret , et recree le si neccessaire
+Vérifie également le secret MinIO, et recrée-le si nécessaire :
 ```bash
 kubectl create secret generic minio-credentials \
   --from-literal=rootUser=minioadmin \
   --from-literal=rootPassword='UnVraiMotDePasseSolide!'
 ```
+
+#### 4.4.1 Déploiement du chart Helm
 
 ```bash
 cd data-platform-stream
@@ -466,28 +458,75 @@ helm dependency list
 helm lint .
 helm install data-platform-stream .
 ```
-Vous aurez deploier donc 
 
-```bash
-Data Generator (Streamlit)	http://<ip-du-cluster>:30911
-Kafka	<ip-du-cluster>:30902
-Kafka UI	http://<ip-du-cluster>:30903
-MinIO 	http://<ip-du-cluster>:32001
-NiFi	https://<ip-du-cluster>:30905
-Trino	http://<ip-du-cluster>:30906
-Iceberg
-```
-un déploiement correct crée automatiquement les topics suivants :
+Tu auras ainsi déployé :
 
-`raw-bank-transactions` , `raw-insurance-operations` , `raw-mobile-money-payments` , `raw-loan-repayments` , `silver-bank-transactions` , `silver-insurance-operations` , `silver-mobile-money` , `dlq-financial-events` , `gold-liquidity-alerts` , `gold-aml-events` , `gold-fraud-alerts` 
+| Service | URL |
+|---|---|
+| Data Generator (Streamlit) | `http://<ip-du-cluster>:30911` |
+| Kafka | `<ip-du-cluster>:30902` |
+| Kafka UI | `http://<ip-du-cluster>:30903` |
+| MinIO | `http://<ip-du-cluster>:32001` |
+| NiFi | `https://<ip-du-cluster>:30905` |
+| Trino | `http://<ip-du-cluster>:30906` |
+| Iceberg | — |
 
-En cas de manque de ressources, le pod de provisioning Kafka peut échouer à créer ces topics — vérifier et créer manuellement si nécessaire.
+⚠️ Un déploiement correct crée automatiquement les topics suivants :
+`raw-bank-transactions`, `raw-insurance-operations`, `raw-mobile-money-payments`, `raw-loan-repayments`, `silver-bank-transactions`, `silver-insurance-operations`, `silver-mobile-money`, `dlq-financial-events`, `gold-liquidity-alerts`, `gold-aml-events`, `gold-fraud-alerts`.
 
-### 3.2.1
+⚠️ Et les buckets suivants dans MinIO :
+`raw-landing`, `archive`, `lakehouse`, `airflow-logs`.
 
-### 3.3 Déploiement de l'infrastructure complète
+⚠️ En cas de ressources insuffisantes, le pod de provisioning peut échouer à créer ces ressources — vérifie et crée-les manuellement si nécessaire.
 
-Si vous disposez de ressources suffisantes pour déployer l'ensemble de l'infrastructure, utilisez les commandes suivantes :
+#### 4.4.2 Configuration de NiFi
+
+Accède à l'interface NiFi via `https://<ip-du-cluster>:30905`, et connecte-toi avec :
+Identifiants : `username` / `changemechangeme`
+
+1. Dans la barre d'outils en haut de l'interface NiFi, glisse l'icône **Process Group** (4ᵉ icône) sur l'espace de travail.
+2. Clique sur **Browse**, sélectionne le fichier `K8s/data-platform-stream/NiFi_Flow_k8s.json`, puis **Add**.
+3. Attends qu'il apparaisse sur le canvas, puis double-clique dessus pour l'ouvrir.
+
+**Configuration requise après import :**
+
+**Étape 1 — Credentials MinIO :**
+Double-clique sur le processeur **ListS3** → onglet Properties → renseigne :
+- Access Key ID : `minioadmin`
+- Secret Key : `UnVraiMotDePasseSolide!`
+→ **Apply**
+
+Répète exactement la même chose sur le processeur **FetchS3Object** (le deuxième élément du job).
+
+**Étape 2 — Activer les Controller Services :**
+- Clic droit sur une zone vide du canvas → **Configure** → onglet **Controller Services**.
+- Pour chacun des 3 services listés : clique sur l'icône ⚡ (éclair) en bout de ligne → **Enable** → **Close**.
+- Une fois les 3 activés, l'icône poubelle (qui indiquait un service non utilisé/inactif) doit disparaître de chaque ligne.
+- Ferme la fenêtre de configuration.
+
+**Étape 3 — Démarrer le flow :**
+Sélectionne tous les processeurs (rectangle de sélection sur tout le canvas) → clique sur ▶️ dans le panneau Operate.
+
+#### 4.4.3 Générer les données en continu
+
+Retourne sur l'application Streamlit (Level 1) :
+- Rafraîchis la page.
+- Régénère de nouveaux référentiels et envoie-les vers MinIO.
+- Dans la section données transactionnelles, choisis le mode **Continue**.
+- Ajuste l'intervalle de génération, le nombre de lignes par cycle, et les pays souhaités.
+- Coche **Démarrer la génération continue**.
+
+Les données sont maintenant générées en flux continu dans MinIO.
+
+#### 4.4.4 Vérifier que tout fonctionne
+
+Retourne sur **Kafka UI** (`http://<ip-du-cluster>:30903`) : les messages doivent commencer à apparaître dans les topics `raw-*`, puis `silver-*`, puis `gold-*` au fur et à mesure que les jobs Spark Streaming les traitent.
+
+---
+
+### 4.5 Option C — Déploiement de l'infrastructure complète
+
+Si tu disposes de ressources suffisantes pour déployer l'ensemble de l'infrastructure, utilise les commandes suivantes :
 
 ```bash
 cd data-platform
@@ -497,68 +536,35 @@ helm lint .
 helm install data-platform .
 ```
 
-
-### ⚠️ Points d'attention en cas de ressources insuffisantes lors du deploiement complet
+**Points d'attention en cas de ressources insuffisantes lors du déploiement complet :**
 
 1. **Le déploiement peut être long** selon les ressources disponibles sur le cluster.
-2. **Migration Airflow** : si les migrations de base de données ne se terminent pas correctement, les pods des composants Airflow ne démarreront pas. Vérifier avec `kubectl get pods` et relancer si besoin.
-3. **Buckets MinIO** : un déploiement correct crée automatiquement les buckets `raw-landing`, `lakehouse` et `archive`. En cas de manque de ressources, le pod de provisioning peut ne pas démarrer — dans ce cas, créer les buckets manuellement une fois le déploiement terminé.
-4. **Topics Kafka** : de même, un déploiement correct crée automatiquement les topics suivants :
+2. **Migration Airflow** : si les migrations de base de données ne se terminent pas correctement, les pods des composants Airflow ne démarreront pas. Vérifie avec `kubectl get pods` et relance si besoin.
+3. **Buckets MinIO** : un déploiement correct crée automatiquement les buckets `raw-landing`, `lakehouse` et `archive`. En cas de manque de ressources, le pod de provisioning peut ne pas démarrer — dans ce cas, crée les buckets manuellement une fois le déploiement terminé.
+4. **Topics Kafka** : de même, un déploiement correct crée automatiquement les topics suivants : `raw-bank-transactions`, `raw-insurance-operations`, `raw-mobile-money-payments`, `raw-loan-repayments`, `silver-bank-transactions`, `silver-insurance-operations`, `silver-mobile-money`, `dlq-financial-events`, `gold-liquidity-alerts`, `gold-aml-events`, `gold-fraud-alerts`.
+5. **Buckets MinIO** : de même, un déploiement correct crée automatiquement les buckets suivants dans MinIO : `raw-landing`, `archive`, `lakehouse`, `airflow-logs`.
 
-   | Topic | Partitions | Replication Factor | Retention |
-   |---|---|---|---|
-   | `raw-bank-transactions` | 3 | 1 | 7 jours |
-   | `raw-insurance-operations` | 3 | 1 | 7 jours |
-   | `raw-mobile-money-payments` | 1 | 1 | 7 jours |
-   | `raw-loan-repayments` | 3 | 1 | 7 jours |
-   | `silver-bank-transactions` | 1 | 1 | 7 jours |
-   | `silver-insurance-operations` | 3 | 1 | 7 jours |
-   | `silver-mobile-money` | 1 | 1 | 7 jours |
-   | `dlq-financial-events` | 3 | 1 | 7 jours |
-   | `gold-liquidity-alerts` | 1 | 1 | 7 jours |
-   | `gold-aml-events` | 1 | 1 | 7 jours |
-   | `gold-fraud-alerts` | 1 | 1 | 7 jours |
+⚠️ Vérifie que les topics et les buckets sont bien créés avant de continuer ; si ce n'est pas le cas, crée-les toi-même.
 
-   En cas de manque de ressources, le pod de provisioning Kafka peut échouer à créer ces topics — vérifier et créer manuellement si nécessaire.
+#### 4.5.1 Génération des données et accès à MinIO
 
-## 4. Accès aux applications
+Accède à l'application de génération de données via :
+`http://<ip-du-cluster>:30911`
 
-Une fois le déploiement terminé, lister les services exposés :
+Le processus de génération des données est le même que celui du Level 1.
 
-```bash
-kubectl get svc
-```
+Puis accède à MinIO via `http://<ip-du-cluster>:32001`, et connecte-toi avec :
+Identifiants : `minioadmin` / `UnVraiMotDePasseSolide!`
 
-Chaque application de type `NodePort` est accessible via `<IP_DU_NODE>:<PORT_EXPOSÉ>` (le port après les deux-points dans la colonne `PORT(S)`, par exemple `31151` pour Airflow).
-```bash
-Application	  et URL
+#### 4.5.2 Configuration initiale d'Airflow
 
-Airflow	http://<ip-du-cluster>:31151
-Data Generator (Streamlit)	http://<ip-du-cluster>:30911
-Grafana	http://<ip-du-cluster>:30909
-Kafka	<ip-du-cluster>:30902
-Kafka UI	http://<ip-du-cluster>:30903
-Prometheus	http://<ip-du-cluster>:30090
-MinIO Console	http://<ip-du-cluster>:32001
-MinIO API (S3)	http://<ip-du-cluster>:32000
-NiFi	https://<ip-du-cluster>:30905
-Trino	http://<ip-du-cluster>:30906
-```
-## 5. Configuration initiale d'Airflow
-Acceder a l'interface de airflow, et connecter vous avec 
+Accède à l'interface Airflow via `http://<ip-du-cluster>:31151`, et connecte-toi avec :
 Identifiants : `admin` / `admin`
 
-### 5.1 Importer les variables
+Rends-toi dans **Admin → Variables** puis :
+- importe le fichier `waba-variables.json` présent dans le dossier `K8s/data-platform`.
 
-Se rendre dans **Admin → Variables** puis :
-
-- importer le fichier `waba-variables-batch.json` présent dans le dossier K8s si vous avez deploier seulement la partie batch.
-
-- importer le fichier `waba-variables.json` présent dans le dossier K8s si vous avez deploier toute l'infra.
-
-### 5.2 Créer les connexions
-
-Se rendre dans **Admin → Connections** et créer deux connexions :
+Rends-toi dans **Admin → Connections** et crée deux connexions :
 
 **Connexion Kubernetes**
 - **Connection Id** : `kubernetes_default`
@@ -569,40 +575,66 @@ Se rendre dans **Admin → Connections** et créer deux connexions :
 **Connexion MinIO (pour les logs distants)**
 - **Connection Id** : `minio_s3_conn`
 - **Connection Type** : `Amazon Web Services`
-- **aws_access_key_id** : `Amazon Web Services`
-- **aws_secret_access_key** : `Amazon Web Services`
+- **aws_access_key_id** : `minioadmin`
+- **aws_secret_access_key** : `UnVraiMotDePasseSolide!`
 - **Champs supplémentaires JSON** :
 ```json
-Pour le deploiement de la partie batch seulement
-{
-  "endpoint_url": "http://data-platform-batch-minio:9000"
-}
------------
-
-Pour le deploiement de toute l'infra
 {
   "endpoint_url": "http://data-platform-minio:9000"
 }
 ```
 
-## 6. Génération et chargement des données
+#### 4.5.3 Configuration de NiFi
 
-Accéder à l'application de génération de données via son NodePort.
+Accède à l'interface NiFi via `https://<ip-du-cluster>:30905`, et connecte-toi avec :
+Identifiants : `username` / `changemechangeme`
 
-1. Créer d'abord les **référentiels**, puis les envoyer vers MinIO.
-2. Créer ensuite des **transactions**, et les charger vers MinIO.
-Comme dans le level1
+1. Dans la barre d'outils en haut de l'interface NiFi, glisse l'icône **Process Group** (4ᵉ icône) sur l'espace de travail.
+2. Clique sur **Browse**, sélectionne le fichier `K8s/data-platform-stream/NiFi_Flow_k8s.json`, puis **Add**.
+3. Attends qu'il apparaisse sur le canvas, puis double-clique dessus pour l'ouvrir.
 
-## 7. Vérification dans MinIO
+**Configuration requise après import :**
 
-Accéder à la console MinIO et se connecter avec :
-- **Utilisateur** : `minioadmin`
-- **Mot de passe** : `UnVraiMotDePasseSolide!`  (celui défini dans le secret `minio-credentials`)
+**Étape 1 — Credentials MinIO :**
+Double-clique sur le processeur **ListS3** (premier processeur) → onglet Properties → renseigne :
+- Access Key ID : `minioadmin`
+- Secret Key : `UnVraiMotDePasseSolide!`
+- Endpoint Override URL : `http://data-platform-minio:9000`
+→ **Apply**
 
-Vérifier que les données générées sont bien présentes dans le bucket `raw-landing`.
+Répète exactement la même chose sur le processeur **FetchS3Object** (deuxième processeur).
 
-## 8. Déclenchement des DAGs
+**Étape 2 — Credentials Kafka :**
+Double-clique sur le processeur **PublishKafkaRecord_2_6** (dernier processeur) → onglet Properties → renseigne :
+- Kafka Brokers : `data-platform-kafka:9092`
+→ **Apply**
 
-Retourner dans Airflow et déclencher les DAGs.
+**Étape 3 — Activer les Controller Services :**
+- Clic droit sur une zone vide du canvas → **Configure** → onglet **Controller Services**.
+- Pour chacun des 3 services listés : clique sur l'icône ⚡ (éclair) en bout de ligne → **Enable** → **Close**.
+- Une fois les 3 activés, l'icône poubelle (qui indiquait un service non utilisé/inactif) doit disparaître de chaque ligne.
+- Ferme la fenêtre de configuration.
 
-> ⚠️ Pour des raisons de ressources limitées, déclencher les DAGs **un par un, au fur et à mesure**, plutôt que tous en même temps.
+**Étape 4 — Démarrer le flow :**
+Sélectionne tous les processeurs (rectangle de sélection sur tout le canvas) → clique sur ▶️ dans le panneau Operate.
+
+#### 4.5.4 Générer les données en continu
+
+Retourne sur l'application Streamlit (Level 1) :
+- Rafraîchis la page.
+- Régénère de nouveaux référentiels et envoie-les vers MinIO.
+- Dans la section données transactionnelles, choisis le mode **Continue**.
+- Ajuste l'intervalle de génération, le nombre de lignes par cycle, et les pays souhaités.
+- Coche **Démarrer la génération continue**.
+
+Les données sont maintenant générées en flux continu dans MinIO.
+
+#### 4.5.5 Vérifier que tout fonctionne
+
+Retourne sur **Kafka UI** (`http://<ip-du-cluster>:30903`) : les messages doivent commencer à apparaître dans les topics `raw-*`, puis `silver-*`, puis `gold-*` au fur et à mesure que les jobs Spark Streaming les traitent.
+
+#### 4.5.6 Déclenchement des DAGs
+
+Retourne dans Airflow et déclenche les DAGs.
+
+> ⚠️ Pour des raisons de ressources limitées, déclenche les DAGs **un par un, au fur et à mesure**, plutôt que tous en même temps — commence par les jobs d'ingestion de données.
