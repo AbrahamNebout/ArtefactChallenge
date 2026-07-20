@@ -383,6 +383,10 @@ Le processus de génération des données est le même que celui du Level 1.
 Puis accède à MinIO via `http://<ip-du-cluster>:32001`, et connecte-toi avec :
 Identifiants : `minioadmin` / `UnVraiMotDePasseSolide!`
 
+Accède à Trino via `http://<ip-du-cluster>:30906`, et connecte-toi avec :
+Identifiants : `admin`
+
+
 #### 4.3.3 Configuration initiale d'Airflow
 
 Accède à l'interface Airflow via `http://<ip-du-cluster>:31151`, et connecte-toi avec :

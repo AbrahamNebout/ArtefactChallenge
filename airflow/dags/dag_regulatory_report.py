@@ -5,11 +5,6 @@ Génère quotidiennement le rapport réglementaire consolidé BCEAO/CIMA
 (NPL par pays/type de prêt + loss ratio par pays/produit), à partir des
 tables Gold déjà calculées par dag_silver_to_gold.
 
-Planifié à J+1 00h30 UTC : le "logical_date" de chaque exécution correspond
-à la VEILLE (J), comme pour les DAGs d'ingestion Bronze. Contrairement à
-dag_bronze_to_silver et dag_silver_to_gold (déclenchés par Asset), celui-ci
-est un cron classique avec catchup -> {{ ds_nodash }} est ici fiable et
-correspond bien au jour réellement à traiter.
 """
 from datetime import datetime
 

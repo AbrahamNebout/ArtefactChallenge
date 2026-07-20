@@ -254,11 +254,8 @@ def transform(spark: SparkSession, data_type: str, date_str: str | None = None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_type", required=True, choices=list(DEDUP_KEYS.keys()))
-    parser.add_argument("--date", default=None,
-                         help="Jour YYYYMMDD à transformer explicitement (utile pour un rejeu "
-                              "manuel/backfill ciblé). Si omis, le script détecte lui-même les "
-                              "dates non encore traitées (mode incrémental automatique, "
-                              "recommandé pour l'usage régulier déclenché par Airflow/Asset).")
+    parser.add_argument("--date", default=None)
+                        
     args = parser.parse_args()
 
     spark = get_spark_session()
@@ -267,9 +264,6 @@ def main():
         # Rejeu explicite d'un jour précis (backfill manuel)
         transform(spark, args.data_type, args.date)
     else:
-        # Mode incrémental auto : on ne dépend plus du logical_date du DAG
-        # (qui, pour un DAG déclenché par Asset, ne correspond à aucune
-        # date métier réelle) — on traite tout ce qui est en attente.
         pending_dates = get_pending_dates(spark, args.data_type)
         for d in pending_dates:
             transform(spark, args.data_type, d)

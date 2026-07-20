@@ -1,8 +1,8 @@
 """
 ingest_raw.py
 
-Lit les fichiers CSV bruts depuis MinIO (bucket raw-landing), les valide,
-et les écrit dans des tables Iceberg (schéma raw.*) via le REST Catalog.
+Lit les fichiers CSV bruts depuis MinIO bucket raw-landing, les valide,
+et les écrit dans des tables Iceberg schéma raw.* via le REST Catalog.
 Usage: spark-submit ingest_raw.py --data_type bank_transactions --country CI
 """
 import argparse
@@ -191,18 +191,14 @@ def main():
     parser.add_argument("--ensure-table-only", action="store_true",
                          help="Crée uniquement la table Bronze si absente, sans ingérer de données.")
     args = parser.parse_args()
-
     spark = get_spark_session()
-
     if args.ensure_table_only:
         ensure_table_exists(spark, args.data_type)
         spark.stop()
         return
 
     ensure_table_exists(spark, args.data_type)
-
     is_referential = args.data_type in REFERENTIAL_TYPES
-
     if is_referential:
         s3_path = f"s3a://raw-landing/shared/referentials/{args.data_type}.csv"
     else:

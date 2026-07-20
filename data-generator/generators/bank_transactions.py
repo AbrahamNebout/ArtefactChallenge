@@ -46,9 +46,7 @@ def generate_bank_transactions(
         raise ValueError(f"Aucun compte/agence trouvé pour {country} — "
                           f"génère les référentiels d'abord.")
 
-    # 2. Tirage des comptes émetteurs et bénéficiaires
-    #    (un compte peut débiter/créditer, y compris lui-même dans de rares cas,
-    #    on les filtre pour rester réaliste)
+
     account_id = RNG.choice(country_accounts, size=n_rows)
     beneficiary_account = RNG.choice(country_accounts, size=n_rows)
     # Là où par hasard account_id == beneficiary_account, on re-tire une fois
@@ -63,9 +61,6 @@ def generate_bank_transactions(
     status = RNG.choice(TXN_STATUSES, size=n_rows, p=TXN_STATUS_PROBS)
     channel = RNG.choice(CHANNELS, size=n_rows, p=CHANNEL_PROBS)
 
-    # 3. Montants : distribution log-normale -> beaucoup de petites transactions,
-    #    quelques grosses (réaliste pour des flux financiers, contrairement
-    #    à une distribution uniforme qui donnerait des montants "plats" irréalistes)
     amount = np.maximum(500, RNG.lognormal(mean=12, sigma=1.5, size=n_rows)).round(0)
 
     # 4. Frais : uniquement si la transaction a réussi, sinon 0

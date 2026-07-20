@@ -1,12 +1,9 @@
 """
 transform_gold.py
 
-Calcule les 7 tables Gold (KPIs financiers et réglementaires) définies au
+Calcule les 7 tables Gold définies au
 cahier des charges, à partir des tables Silver.
 
-Même principe de "high-water mark" que transform_silver.py : chaque table
-Gold a sa propre granularité (jour, semaine ou mois) et on ne recalcule que
-les périodes non encore présentes dans la table Gold correspondante.
 
 Cas particulier : gold.npl_ratio_by_country est un indicateur de STOCK
 (encours en cours, pas un flux du jour) -> à chaque nouvelle date détectée,
@@ -21,10 +18,7 @@ import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-# ============================================================================
-# Valeurs métier réelles, vérifiées contre config.py du générateur Streamlit
-# (Level 1) — plus des hypothèses, ce sont les enums effectivement utilisés.
-# ============================================================================
+
 LOAN_DEFAULT_STATUSES = {"DEFAULT"}                            # loan_repayments.repayment_status
 INSURANCE_PREMIUM_TYPE = "PREMIUM_PAYMENT"                      # insurance_operations.operation_type
 INSURANCE_CLAIM_PAYMENT_TYPE = "CLAIM_PAYMENT"                  # insurance_operations.operation_type
@@ -51,9 +45,6 @@ def get_spark_session() -> SparkSession:
     )
 
 
-# ============================================================================
-# Utilitaires génériques (high-water mark + upsert), partagés par les 7 KPIs
-# ============================================================================
 
 def get_new_periods(spark: SparkSession, source_table: str, gold_table: str,
                      date_col: str, granularity: str) -> list:

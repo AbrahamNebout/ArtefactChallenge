@@ -166,10 +166,6 @@ if st.session_state.referentials is not None:
                 try:
                     df = generate_one_file(data_type, country, n_rows, start_dt, end_dt)
 
-                    # --- Découpage par jour : un fichier CSV par date de transaction,
-                    #     conforme à la nomenclature bank_txn_CC_YYYYMMDD_NN.csv
-                    #     (réaliste : un CBS écrit ses transactions jour par jour,
-                    #     pas en un seul bloc rétroactif sur toute la période) ---
                     df["_day"] = pd.to_datetime(df["timestamp"]).dt.date
                     n_days = df["_day"].nunique()
 
@@ -198,11 +194,7 @@ if st.session_state.referentials is not None:
         if run_continuous:
             client = get_minio_client()
             while run_continuous:
-                # Fenêtre de temps "live" : les timestamps générés à ce cycle
-                # couvrent les `interval` dernières secondes, pas la période
-                # (potentiellement vieille de plusieurs mois) choisie dans le
-                # date_input ci-dessus -> réaliste pour simuler un flux temps
-                # réel consommé par NiFi/Kafka (Level 3).
+
                 cycle_end = datetime.now()
                 cycle_start = cycle_end - timedelta(seconds=interval)
 
@@ -212,9 +204,7 @@ if st.session_state.referentials is not None:
                             df = generate_one_file(dt, country, n_rows_continuous,
                                                     cycle_start, cycle_end)
 
-                            # Nom de fichier réellement déterminé ici (fin du bug
-                            # où filename valait None) : jour + heure:minute:seconde
-                            # pour rester unique à chaque cycle.
+
                             day_str = cycle_end.strftime("%Y%m%d")
                             time_str = cycle_end.strftime("%H%M%S")
                             filename = f"{day_str}/{FILE_PREFIXES[dt]}_{country}_{day_str}_{time_str}.csv"
@@ -240,8 +230,7 @@ if st.session_state.referentials is not None:
 # --- Aperçu des données transactionnelles générées ---
 if st.session_state.last_generated:
     with st.expander("📊 Aperçu des données transactionnelles générées", expanded=True):
-        # On ne garde que les entrées correspondant au type actuellement sélectionné,
-        # pour ne pas mélanger l'aperçu de bank_transactions avec mobile_money par ex.
+
         matching_keys = [
             (dt, c) for (dt, c) in st.session_state.last_generated.keys()
             if dt == data_type
@@ -260,9 +249,9 @@ if st.session_state.last_generated:
                     st.dataframe(df_preview.head(50))
                     st.caption(f"{len(df_preview)} lignes générées au total pour {c}.")
 
-# --- Journal des générations ---
+
 st.header("3️⃣ Journal")
-# --- Journal des générations ---
+
 if st.session_state.generation_log:
     st.code("\n".join(st.session_state.generation_log[-20:]), language=None)
 else:

@@ -4,16 +4,6 @@ dag_ingest_referentials.py
 Ingestion des 4 référentiels partagés (customers, branches, products, accounts)
 vers Bronze, dans l'ordre strict imposé par la cohérence référentielle.
 
-Pour chaque référentiel : ensure_table (crée la table si absente) -> ingestion.
-Même si ces 4 tâches s'exécutent déjà séquentiellement (pas de risque de race
-condition de création concurrente ici), on garde le pattern ensure_table pour
-la cohérence avec les DAGs de transactions et pour éviter tout raise inattendu
-si la table Bronze devait être créée avec un schéma différent d'une exécution
-à l'autre.
-
-En terminant, ce DAG "publie" l'Asset bronze://referentials, ce qui déclenche
-automatiquement les 4 DAGs de transactions qui en dépendent — que ce DAG ait
-été lancé par le cron ou manuellement.
 """
 from datetime import datetime
 

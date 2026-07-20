@@ -2,14 +2,12 @@
 regulatory_report.py
 
 Génère le rapport réglementaire consolidé BCEAO/CIMA pour un jour donné,
-à partir des tables Gold déjà calculées (gold.npl_ratio_by_country,
-gold.loss_ratio_by_product) :
+à partir des tables Gold déjà calculées :
   - NPL par pays/type de prêt vs seuil réglementaire BCEAO (< 5%)
   - Loss ratio par pays/produit vs seuil de vigilance CIMA (> 70%)
 
 Écrit le résultat consolidé dans gold.regulatory_report (table Iceberg) ET
-exporte un CSV dans MinIO (bucket lakehouse, dossier reports/) pour la
-déclaration réglementaire proprement dite.
+exporte un CSV dans MinIO
 
 Usage: spark-submit regulatory_report.py --date 20260502
 """
@@ -57,11 +55,9 @@ def get_spark_session() -> SparkSession:
 
 def build_report(spark: SparkSession, report_date):
     """
-    Construit le rapport consolidé pour `report_date` (objet date Python).
+    Construit le rapport consolidé pour `report_date` .
     Lève une exception explicite si les données Gold attendues ne sont pas
-    encore disponibles (cas d'une course avec dag_silver_to_gold, piloté par
-    Asset et donc sans horaire fixe garanti) -> déclenche un retry Airflow
-    plutôt qu'un échec silencieux.
+    encore disponibles
     """
     month_start = report_date.replace(day=1)
 

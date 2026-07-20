@@ -1,22 +1,7 @@
 """
 dag_bronze_to_silver.py
-
 Transforme les 4 tables Bronze en Silver : nettoyage, déduplication,
 jointure avec les référentiels, conversion en EUR.
-
-Planifié quotidiennement, à la MÊME cadence que les 4 DAGs d'ingestion
-(dag_ingest_bank_transactions, dag_ingest_insurance_operations,
-dag_ingest_mobile_money, dag_ingest_loan_repayments) -- son exécution
-attend explicitement, via ExternalTaskSensor, que le DagRun du jour de
-CHACUN de ces 4 DAGs soit terminé avec succès avant de lancer les
-transformations Silver.
-
-Remplace l'ancien déclenchement par Asset (AssetAll) : plus adapté
-maintenant que l'ingestion est répartie en 4 DAGs indépendants plutôt
-qu'un seul dag_ingest_raw. Comme les deux niveaux partagent la même
-cadence cron, leurs logical_date sont identiques pour un même jour
-traité -- ExternalTaskSensor peut donc comparer directement, sans
-execution_delta à gérer.
 """
 from datetime import datetime
 

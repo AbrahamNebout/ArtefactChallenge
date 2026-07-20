@@ -2,18 +2,7 @@
 dag_ingest_mobile_money.py
 
 Ingestion quotidienne des paiements mobile money vers Bronze.
-Planifié chaque jour à 01h00 UTC : le "logical_date" de chaque exécution
-correspond automatiquement à la VEILLE (J-1).
-
-ensure_table_mobile_money s'exécute UNE SEULE FOIS avant les 8 branches
-pays en parallèle, pour éviter la race condition de CREATE TABLE
-concurrent sur le catalogue Iceberg.
-
-Pour chaque pays : gate (sélection) -> check_file (vérifie la présence du
-CSV du jour) -> ingestion. Si le fichier est absent, check_file échoue et
-la tâche d'ingestion ne s'exécute jamais (upstream_failed).
-
-Rattrapage sélectif : déclenchement manuel avec un paramètre country_codes.
+Planifié chaque jour à 01h00 UTC 
 """
 from datetime import datetime
 from datetime import timedelta

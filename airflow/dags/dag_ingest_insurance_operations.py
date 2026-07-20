@@ -2,15 +2,7 @@
 dag_ingest_bank_transactions.py
 
 Ingestion quotidienne des transactions bancaires vers Bronze.
-Planifié chaque jour à 01h00 UTC : le "logical_date" de chaque exécution
-correspond automatiquement à la VEILLE (J-1).
-
-Pour chaque pays : gate (sélection) -> check_file (vérifie la présence du
-CSV du jour) -> ingestion. Si le fichier est absent, check_file échoue et
-la tâche d'ingestion ne s'exécute jamais (upstream_failed), sans consommer
-de conteneur Spark pour rien.
-
-Rattrapage sélectif : déclenchement manuel avec un paramètre country_codes.
+Planifié chaque jour à 01h00 UTC 
 """
 from datetime import datetime
 from datetime import timedelta

@@ -47,10 +47,7 @@ def generate_loan_repayments(
         REPAYMENT_STATUSES, size=n_rows, p=REPAYMENT_STATUS_PROBS
     )
 
-    # --- due_date : date d'échéance dans la période simulée ---
-    # En secondes (pas en jours entiers) : robuste même sur une fenêtre de
-    # quelques dizaines de secondes (mode Continue), là où un delta en jours
-    # tomberait à 0 et ferait planter RNG.integers(0, 0, ...).
+
     delta_seconds = max(1, int((end - start).total_seconds()))
     due_offsets = RNG.integers(0, delta_seconds, size=n_rows)
     due_date = np.array([start + timedelta(seconds=int(o)) for o in due_offsets])
